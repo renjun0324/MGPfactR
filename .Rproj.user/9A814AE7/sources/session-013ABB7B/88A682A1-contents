@@ -1,0 +1,54 @@
+
+data(sdata)
+cell_info = data.frame(row.names = rownames(sdata),
+                       cell_id = rownames(sdata))
+ct <- CreateCellTrekObject(data_matrix = as.matrix(sdata),
+                           MetaData = cell_info)
+ct@MURP <- MURP(Data = ct@assay$data_matrix,
+                omega = 0.5,
+                max_murp = 200,
+                cores = 1, iter = 10,  seed = 723, fast = TRUE)
+ct@MetaData$murp_cluster <- ct@MURP$Recommended_K_cl$cluster
+ct@MURP$centersPCA <- prcomp(ct@MURP$Recommended_K_cl$centers, center = FALSE, scale. = FALSE)
+
+
+SaveMURPDatToJulia(ct, Q = 3)
+ct = SetSettings(ct,
+                 murp_pc_number = 3,
+                 trajectory_number = 3,
+                 pse_optim_iterations = 10,
+                 # start_murp = murp,
+                 chains_number = 1)
+RunningmodMGPpseudoT(ct, julia_home = "/home/renjun/julia-1.6.6/bin")
+
+ct = ImportPseSimToR(object = ct, init = TRUE)
+ct@OptimResult$pse <- GetIterCor(mamba = ct@OptimResult$pse,
+                                 murp = ct@MURP,
+                                 metadata = ct@MetaData,
+                                 iteration_list = list(c(1, getParams(ct,"pse_optim_iterations"))),
+                                 adjust = FALSE)
+ct@OptimResult$pse <- GetPredT(mamba = ct@OptimResult$pse,
+                               murp = ct@MURP,
+                               metadata = ct@MetaData,
+                               iter_chain_cor_index = 1,
+                               chains = 1,
+                               adjust = FALSE,
+                               filter_chain = FALSE,
+                               mean_th = 0.3 )
+param_meanvalue <- GetAllParamMeanChain(mamba = ct@OptimResult$pse, murp = ct@MURP, aspect = "pse",
+                                        iter_range = rep(getParams(ct, "pse_optim_iterations"),2))
+
+
+sdf <- GetPseSdf(ct,
+                 param_meanvalue = param_meanvalue,
+                 t_pred_index = 1,
+                 unified_direction = FALSE,
+                 rm_adjust_chain = FALSE,
+                 labels = getParams(ct,"label") )
+orig_T <- GetPseudoTt(CellNum = nrow(ct@assay$data_matrix),
+                      pred_t = sdf$T,
+                      Cluster_Label = ct@MURP$Recommended_K_cl$cluster)
+
+bintree_all <- GetBinTree(object = ct,sdf[order(sdf$T, decreasing = FALSE), ])
+tbtree <- GetTbTree(object = ct, sdf[order(sdf$T, decreasing = FALSE), ])
+tbtree_all <- GetTbTreeAllpoint(object = ct, tbtree, sdf, getParams(ct,"label"))
