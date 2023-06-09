@@ -15,6 +15,7 @@ RUNPCA <- function(object,
                    scale = FALSE){
 
   s = object@assay$data_matrix
+  s = as.matrix(s)
   object@DimReducs@PCA = prcomp(s, center = center, scale = scale)
   command = GetCommand()
   object@Command$DimReducs$PCA = command
@@ -85,7 +86,7 @@ RUNDM <- function(object,
   require(diffusionMap)
 
   s = object@assay$data_matrix
-
+  s = as.matrix(s)
   # mat = distance(s, method = method)
   mat = parDist(s, method = method, diag = TRUE, upper = TRUE, threads = cores)
   mat = as.matrix(mat)

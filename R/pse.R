@@ -98,30 +98,31 @@ AddMetadata <- function(object, df){
 #'
 #' @param object
 #' @param param_meanvalue
-#' @param t_pred_index
 #' @param unified_direction
+#' @param rm_adjust_chain
 #' @param rev
-#' @param labels
 #'
 GetPseSdf <- function(object,
                       param_meanvalue = NULL,
                       unified_direction = FALSE,
                       rm_adjust_chain = FALSE,
-                      rev = FALSE,
-                      labels = NULL){
+                      rev = FALSE){
+
+  # param_meanvalue = GetAllParamMeanChain(object = ct, aspect = "pse",
+  #                                        iter_range = rep(getParams(ct, "pse_optim_iterations"),2))
   # object = ct
-  # param_meanvalue = NULL
   # unified_direction = FALSE
+  # rm_adjust_chain = TRUE
+  # rev = FALSE
+  # unified_direction = TRUE
   # rm_adjust_chain = FALSE
   # rev = FALSE
-  # labels = NULL
-  # save(ct, param_meanvalue, file = "/public/home/renjun/debug.rda")
 
   if(is.null(param_meanvalue)){
     iter = getParams(ct,"pse_optim_iterations")
     # load(paste0("2_pseudotime/param_meanvalue_",iter,"_",iter,".rda"))
     param_meanvalue <- GetAllParamMeanChain(object = object, aspect = "pse",
-                                            iter_range = rep(getParams(ct, "pse_optim_iterations"),2))
+                                            iter_range = rep(getParams(object, "pse_optim_iterations"),2))
   }
   if(!is.null(labels)){
     labels = getParams(object,"label")
@@ -136,18 +137,23 @@ GetPseSdf <- function(object,
   L <- getParams(object, "trajectory_number")
   Q <- getParams(object, "murp_pc_number")
 
-  # 是否要和logpdf_ch结合过滤
-  # logpdf_ch <- paste0("chain",1:10)[which(mamba@logpdf$cor$spearman[1,] < 0.7)]
-  # filter_ch <- setdiff(mamba@t_pred[[1]]$filter_chain,logpdf_ch)
+  ## 哪些chain是最终保留下来的
   t_pred =mamba@t_pred
-  if(t_pred$adjust){
-    rev_ch <- t_pred$adjust_chain
-  }
-  if(rm_adjust_chain){
-    filter_ch <- setdiff(t_pred$keep_chain,rev_ch)
+  if(object@Settings@settings$chains_number>1){
+    if(t_pred$adjust){
+      rev_ch <- t_pred$adjust_chain
+    }else{
+      rev_ch <- NULL
+    }
+    if(rm_adjust_chain){
+      filter_ch <- setdiff(t_pred$keep_chain,rev_ch)
+    }else{
+      filter_ch <- t_pred$keep_chain
+    }
   }else{
     filter_ch <- t_pred$keep_chain
   }
+  cat("filter_chain", filter_ch, "\n")
 
   param_tb <- param_meanvalue$Tb[filter_ch,,drop=FALSE]
   param_T <- param_meanvalue$T[filter_ch,,drop=FALSE]
@@ -188,9 +194,6 @@ GetPseSdf <- function(object,
   ## 判断是不是单链
   if(nrow(param_tb)==1){
 
-    ###############################################
-    ######           single chain             #####
-    ###############################################
     tb_list = as.list( param_tb )
     l1_list = param_lambda1[1,,drop=F]
     l2_list = param_lambda2[1,,drop=F]
@@ -209,9 +212,6 @@ GetPseSdf <- function(object,
 
   }else{
 
-    ###############################################
-    ######             COMBINE                #####
-    ###############################################
     ### 1. 对10个chain的Tb向量化并聚类，得到均值Tb
     param_tb_2 <- param_tb
     colnames(param_tb_2) <- paste0("L",1:L)
@@ -370,34 +370,27 @@ GetPseSdf <- function(object,
                     paste0("lambda3_", 1:L),
                     "mt","s2t","s2x","rho")
 
-  tmp = data.frame(murp$murp_cellinfo[,labels])
-  colnames(tmp) = labels
-  sdf = cbind(sdf, tmp)
   sdf = sdf[1:nrow(sdf),1:ncol(sdf)]
   sdf$unified_direction = unified_direction
 
   ### 2. 准备sdf_orig
   orig_sdf <- data.frame(row.names = rownames(object@assay$data_matrix),
                          names = rownames(object@assay$data_matrix),
-                         T = GetPseudoTt(CellNum = nrow(object@assay$data_matrix),
-                                         pred_t = sdf$T,
-                                         Cluster_Label = murp$Recommended_K_cl$cluster))
+                         T = MapMURPLabelToAll(vecc = sdf$T, orig = murp$Recommended_K_cl$cluster) )
   for(l in 1:L){
     c0 = paste0("C0_",l)
     c = paste0("C_",l)
-    orig_sdf$a = GetPseudoTt(CellNum = nrow(object@assay$data_matrix), pred_t = sdf[,c0], Cluster_Label = murp$Recommended_K_cl$cluster)
-    orig_sdf$b = GetPseudoTt(CellNum = nrow(object@assay$data_matrix), pred_t = sdf[,c], Cluster_Label = murp$Recommended_K_cl$cluster)
+   orig_sdf$a = MapMURPLabelToAll(vecc = sdf[,c0], orig = murp$Recommended_K_cl$cluster)
+    orig_sdf$b = MapMURPLabelToAll(vecc = sdf[,c], orig = murp$Recommended_K_cl$cluster)
     colnames(orig_sdf)[(ncol(orig_sdf)-1):ncol(orig_sdf)] = c(c0,c)
   }
-  tmp = data.frame( object@MetaData[,labels])
-  colnames(tmp) = labels
-  orig_sdf = cbind(orig_sdf, tmp)
 
   ### 3. save
-  save(sdf, file = "2_pseudotime/sdf.rda")
-  save(orig_sdf, file = "2_pseudotime/orig_sdf.rda")
+  # save(sdf, file = "2_pseudotime/sdf.rda")
+  # save(orig_sdf, file = "2_pseudotime/orig_sdf.rda")
 
   ### 4. save to object
+  # save(sdf, file = "~/sdf.rda")
   object = AddMURPMetadata(object, sdf)
   object = AddMetadata(object, orig_sdf)
 

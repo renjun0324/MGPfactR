@@ -17,6 +17,59 @@ om <- function(x){
   return(r)
 }
 
+##### MURPDownsampling
+#' @param name description
+MURPDownsampling <- function(object,
+                             omega = 0.5,
+                             iter = 10,
+                             seed = 723,
+                             fast = T,
+                             max_murp = 500,
+                             cores = 1,
+                             pca.center = FALSE,
+                             pca.scale = FALSE,
+                             plot = T){
+
+  require(MURP)
+  require(ggplot2)
+  require(patchwork)
+
+  object@MURP <- MURP(Data = object@assay$data_matrix,
+                      cores = cores,
+                      omega = omega,
+                      iter = iter,
+                      seed = seed,
+                      fast = fast,
+                      max_murp = max_murp)
+  object@MetaData$murp_cluster <- object@MURP$Recommended_K_cl$cluster
+  # object@MURP$centersPCA <- prcomp(object@MURP$Recommended_K_cl$centers, center = pca.center, scale. = pca.scale)
+  object <- MURPPCA(object, pca.center = pca.center, pca.scale = pca.scale)
+
+  if(plot){
+    ggsave("1_murp/murp_bic_k.pdf", MURPNestedGridPlot(object@MURP), width = 3.5, height = 3.5)
+
+    pl = PCANestedGridPlot(pca_result = object@MURP$centersPCA, sd_cutoff = 1, max_pc = 100)
+    p = wrap_plots(pl, ncol = 3, guides = "collect")
+    ggsave("1_murp/pca_scree_30pc.pdf",p, width = 10, height = 3.7)
+  }
+
+  command = GetCommand()
+  object@Command$murp$MURPDownsampling = command
+  return(object)
+}
+
+##### MURPDownsampling
+#' @param name description
+MURPPCA <- function(object,
+                    pca.center = FALSE,
+                    pca.scale = FALSE){
+
+  object@MURP$centersPCA <- prcomp(object@MURP$Recommended_K_cl$centers, center = pca.center, scale. = pca.scale)
+
+  command = GetCommand()
+  object@Command$murp$MURPPCA = command
+  return(object)
+}
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #                              useful function
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -190,57 +243,57 @@ IntersectSet <- function(set_list = NULL, num=3){
   return(result)
 }
 
-#' get_blank_coord
+#' #' get_blank_coord
+#' #'
+#' #' @export
+#' get_blank_coord <- function(p){
 #'
-#' @export
-get_blank_coord <- function(p){
-
-  l_dat = layer_data(p,1)
-  sapply(c("x","y"), function(coord_tag){
-
-    ## get range of coordinates x/y
-    rge = ggplot_build(p)$layout$panel_params[[1]][[paste0(coord_tag,".range")]]
-
-    # 插值
-    coord_df <- data.frame(coord = seq(rge[1],rge[2], length.out=1000),
-                           tag = "0") %>%
-      rbind(data.frame(coord = l_dat[,coord_tag], tag = "1")) %>%
-      arrange(coord)
-
-    # 判断连续的空白区域（0是插入的空白点，1是原先的点）
-    # 用start命名
-    rl = rle(coord_df$tag)
-    rl_i = c(1) ## named as start index
-    for(i in 1:(length(rl$lengths)-1) ){
-      rl_i = append(rl_i, rl_i[i]+rl$lengths[i])
-    }
-    rl_df = data.frame(row.names = rl_i,
-                       ind = rl_i,
-                       v = rl$values,
-                       l = rl$lengths) %>%
-      filter(v=="0")
-    mm = which(rl_df$l==max(rl_df$l))
-    if(length(mm)>1) mi = tail(mm,1) else mi = mm
-    ind = rl_df[mi,"ind"]
-
-    # 利用取出的短的均值作为可以放label的坐标
-    crd = coord_df[ind:(ind+rl_df[as.character(ind),"l"]-1), "coord"]
-    if(coord_tag=="x"){
-      if((max(coord_df$coord)-tail(crd,1))<=0.1){
-        star = crd[1]-0.15
-      }
-      if((crd[1]-min(coord_df$coord))<=0.1){
-        star = tail(crd,1)
-      }
-    }else{
-      star = prod(crd)^(1/length(crd))
-    }
-
-    return(star)
-  } ) -> crdd
-
-  return(crdd)
-}
+#'   l_dat = layer_data(p,1)
+#'   sapply(c("x","y"), function(coord_tag){
+#'
+#'     ## get range of coordinates x/y
+#'     rge = ggplot_build(p)$layout$panel_params[[1]][[paste0(coord_tag,".range")]]
+#'
+#'     # 插值
+#'     coord_df <- data.frame(coord = seq(rge[1],rge[2], length.out=1000),
+#'                            tag = "0") %>%
+#'       rbind(data.frame(coord = l_dat[,coord_tag], tag = "1")) %>%
+#'       arrange(coord)
+#'
+#'     # 判断连续的空白区域（0是插入的空白点，1是原先的点）
+#'     # 用start命名
+#'     rl = rle(coord_df$tag)
+#'     rl_i = c(1) ## named as start index
+#'     for(i in 1:(length(rl$lengths)-1) ){
+#'       rl_i = append(rl_i, rl_i[i]+rl$lengths[i])
+#'     }
+#'     rl_df = data.frame(row.names = rl_i,
+#'                        ind = rl_i,
+#'                        v = rl$values,
+#'                        l = rl$lengths) %>%
+#'       filter(v=="0")
+#'     mm = which(rl_df$l==max(rl_df$l))
+#'     if(length(mm)>1) mi = tail(mm,1) else mi = mm
+#'     ind = rl_df[mi,"ind"]
+#'
+#'     # 利用取出的短的均值作为可以放label的坐标
+#'     crd = coord_df[ind:(ind+rl_df[as.character(ind),"l"]-1), "coord"]
+#'     if(coord_tag=="x"){
+#'       if((max(coord_df$coord)-tail(crd,1))<=0.1){
+#'         star = crd[1]-0.15
+#'       }
+#'       if((crd[1]-min(coord_df$coord))<=0.1){
+#'         star = tail(crd,1)
+#'       }
+#'     }else{
+#'       star = prod(crd)^(1/length(crd))
+#'     }
+#'
+#'     return(star)
+#'   } ) -> crdd
+#'
+#'   return(crdd)
+#' }
 
 
 #' get_blank_coord2

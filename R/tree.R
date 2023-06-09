@@ -650,17 +650,19 @@ GetTbTree <- function(object,
   ### 0. 获取tb_f和Tb
   tb_f <- sdf[, c("T", paste0("C0_",1:L))]
   Tb <- sdf[1,paste0("Tb_",1:L)] %>% as.matrix %>% as.vector
-  names(Tb) <- colnames(sdf)[(2+L*2):(1+3*L)]
+  names(Tb) <- paste0("Tb_",1:L)
+  # names(Tb) <- colnames(sdf)[(2+L*2):(1+3*L)]
+
 
   ### 1. 获得Tb-tree的邻接矩阵tb_adj_matrix
   index = which(Tb > min(tb_f$T))
   if(length(index)==0){
-    adj_matrix <- matrix(0, nr = P, nc = P)
-    rownames(adj_matrix) <- paste0("T[",1:P,"]")
-    colnames(adj_matrix) <- paste0("T[",1:P,"]")
-    for(i in 1:(nrow(tb_f)-1) ){
-      adj_matrix[rownames(tb_f)[i],rownames(tb_f)[i+1]] = 1
-    }
+    itb = length(Tb)
+    pos = split_tb(tb_f$T, Tb[itb])
+    tb_cut = lapply(pos, function(x) tb_f[x,])
+    tb_group = split_binary_tree(tb_cut, sep = paste0("C0_", itb))
+    adj_matrix = adj_tb_tree(tb_group, P, point_names =  rownames(sdf))
+
   }else if(length(index)==1){
     pos = split_tb(tb_f$T, Tb[index])
     tb_cut = lapply(pos, function(x) tb_f[x,])

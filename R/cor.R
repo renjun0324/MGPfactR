@@ -13,15 +13,7 @@
 #'
 GetIterCor <- function(object,
                        iteration_list = NULL,
-                       chains = NULL,
-                       adjust = TRUE){
-
-  # if(missing(iterations_vector) | missing(chains) | missing(T_pred) | missing(cellnum) | missing(truetime) | missing(cluster_label)){
-  #   stop("missing something")
-  # }
-  # if(!is.numeric(truetime)){
-  #   truetime <- as.numeric(as.character(truetime))
-  # }
+                       chains = NULL){
 
   require(dplyr)
   mamba = getPse(object)
@@ -41,7 +33,6 @@ GetIterCor <- function(object,
   iter_chain_cor <- mamba@iter_chain_cor
 
   cellnum <- nrow(metadata)
-  #centers_num <- murpObject$Recommended_K
   cluster_label <- murp$Recommended_K_cl$cluster
 
   # get T_pred
@@ -64,7 +55,8 @@ GetIterCor <- function(object,
   pseudotime <- lapply(1:length(iteration_list), function(i){
     tmp = T_pred[[i]]
     pt = lapply(1:length(chains), function(ch){
-      GetPseudoTt(CellNum = cellnum, pred_t = tmp[[ch]], Cluster_Label = cluster_label)
+      # GetPseudoTt(CellNum = cellnum, pred_t = tmp[[ch]], Cluster_Label = cluster_label)
+      MapMURPLabelToAll(vecc =  tmp[[ch]], orig = cluster_label)
     })
     names(pt) = paste0("chain",chains)
     pt
@@ -89,137 +81,80 @@ GetIterCor <- function(object,
     ct_spearman = ct_pearson = NULL
   }
 
-
-  ## prepare return
-  # mi = min(unlist(iteration_list))
-  # ma = max(unlist(iteration_list))
-  # se = ma/length(iteration_list)
-  ## add command
-  # command = GetCommand()
-  # if(length(iter_chain_cor)==0){
-  #   iter_chain_cor[[1]] = list(t_pred = T_pred,
-  #                              pseudot = pseudotime,
-  #                              spearman = ct_spearman,
-  #                              pearson = ct_pearson,
-  #                              command = command)
-  #   names(iter_chain_cor)[1] =  paste0("iter_", mi, "_", ma, "_seq_", se)
-  #
-  # }else{
-  #   n = length(iter_chain_cor)
-  #   iter_chain_cor[[n+1]] = list(t_pred = T_pred,
-  #                                pseudot = pseudotime,
-  #                                spearman = ct_spearman,
-  #                                pearson = ct_pearson,
-  #                                command = command)
-  #   names(iter_chain_cor)[n+1] <- paste0("iter_", mi, "_", ma, "_seq_", se)
-  # }
   iter_chain_cor = list(t_pred = T_pred,
                         pseudot = pseudotime,
                         spearman = ct_spearman,
                         pearson = ct_pearson)
 
-  # 是否要矫正 adjust
-  if(adjust){
+  # 不管矫正不矫正都加,get adjust t_pred
+  chain_t = do.call(rbind, tail(T_pred,1)[[1]])
+  chain_cor = cor(t(chain_t))
+  c = which.max(apply(chain_cor,1,mean))
 
-    # get adjust t_pred
-    # T_pred=mamba@iter_chain_cor[[1]]$t_pred
-    chain_t = do.call(rbind, tail(T_pred,1)[[1]])
-    chain_cor = cor(t(chain_t))
-    c = which.max(apply(chain_cor,1,mean))
-    # 根据所有的chain的均值得到要反转的chain是哪几个
-    if(length(which(chain_cor[c,] > 0)) < (nrow(chain_t)/2) ){
-      ch_rev <- which(chain_cor[c,] > 0)
-    } else{
-      ch_rev <- which(chain_cor[c,] < 0)
-    }
-    cat(ch_rev,"\n")
+  # 根据所有的chain的均值得到要反转的chain是哪几个
+  if(length(which(chain_cor[c,] > 0)) < (nrow(chain_t)/2) ){
+    ch_rev <- which(chain_cor[c,] > 0)
+  } else{
+    ch_rev <- which(chain_cor[c,] < 0)
+  }
+  cat(ch_rev,"\n")
 
-    # reverse
-    adjust_T_pred <- lapply(1:length(T_pred), function(i){
-      chain_t = do.call(rbind, T_pred[[i]])
-      chain_t[ch_rev,] <- 1 - chain_t[ch_rev,]
-      chain_t
+  # reverse
+  adjust_T_pred <- lapply(1:length(T_pred), function(i){
+    chain_t = do.call(rbind, T_pred[[i]])
+    chain_t[ch_rev,] <- 1 - chain_t[ch_rev,]
+    chain_t
+  })
+  names(adjust_T_pred) = paste0("iter_", lapply(iteration_list, paste0, collapse="_"))
+
+  # get adjust pseudotime
+  adjust_pseudotime <- lapply(1:length(adjust_T_pred), function(i){
+    tmp = adjust_T_pred[[i]]
+    pt = lapply(1:length(chains), function(ch){
+      # GetPseudoTt(CellNum = cellnum, pred_t = tmp[ch,], Cluster_Label = cluster_label)
+      MapMURPLabelToAll(vecc =  tmp[ch,], orig = cluster_label)
     })
-    names(adjust_T_pred) = paste0("iter_", lapply(iteration_list, paste0, collapse="_"))
+    names(pt) = paste0("chain",chains)
+    pt
+  })
+  names(adjust_pseudotime) <- paste0("iter_", lapply(iteration_list, paste0, collapse="_"))
 
-    # get adjust pseudotime
-    adjust_pseudotime <- lapply(1:length(adjust_T_pred), function(i){
-      tmp = adjust_T_pred[[i]]
-      pt = lapply(1:length(chains), function(ch){
-        GetPseudoTt(CellNum = cellnum, pred_t = tmp[ch,], Cluster_Label = cluster_label)
-      })
-      names(pt) = paste0("chain",chains)
-      pt
-    })
-    names(adjust_pseudotime) <- paste0("iter_", lapply(iteration_list, paste0, collapse="_"))
+  # get adjust cor
+  adjust_ct_spearman <- matrix(0, nc = length(iteration_list), nr = length(chains))
+  colnames(adjust_ct_spearman) <- sapply(iteration_list, function(c){paste0("iter_",c[1],"_",c[2])})
+  rownames(adjust_ct_spearman) <- paste0('chain', chains)
+  adjust_ct_pearson <- adjust_ct_spearman
 
-    # get adjust cor
-    adjust_ct_spearman <- matrix(0, nc = length(iteration_list), nr = length(chains))
-    colnames(adjust_ct_spearman) <- sapply(iteration_list, function(c){paste0("iter_",c[1],"_",c[2])})
-    rownames(adjust_ct_spearman) <- paste0('chain', chains)
-    adjust_ct_pearson <- adjust_ct_spearman
-
-    if("truetime" %in% colnames(metadata)){
-      for (k in 1:length(iteration_list)){
-        for (i in 1:length(chains) ){
-          adjust_ct_spearman[i, k] <- cor(truetime, adjust_pseudotime[[k]][[i]], method = 'spearman')
-          adjust_ct_pearson[i, k] <- cor(truetime, adjust_pseudotime[[k]][[i]], method = 'pearson')
-        }
+  if("truetime" %in% colnames(metadata)){
+    for (k in 1:length(iteration_list)){
+      for (i in 1:length(chains) ){
+        adjust_ct_spearman[i, k] <- cor(truetime, adjust_pseudotime[[k]][[i]], method = 'spearman')
+        adjust_ct_pearson[i, k] <- cor(truetime, adjust_pseudotime[[k]][[i]], method = 'pearson')
       }
-    }else{
-      adjust_ct_spearman = adjust_ct_pearson = NULL
     }
-
-
-    # prepare
-    if(length(ch_rev)==0){
-      adjust_chain = NULL
-    }else{
-      adjust_chain = paste0("chain",ch_rev)
-    }
-
-    iter_chain_cor = list(t_pred = T_pred,
-                          pseudot = pseudotime,
-                          spearman = ct_spearman,
-                          pearson = ct_pearson,
-                          adjust_chain = adjust_chain,
-                          adjust_t_pred = adjust_T_pred,
-                          adjust_pseudot = adjust_pseudotime,
-                          adjust_spearman = adjust_ct_spearman,
-                          adjust_pearson = adjust_ct_pearson )
-    # iter_chain_cor = mamba@iter_chain_cor
-    # if(length(iter_chain_cor)==0){
-    #   iter_chain_cor[[1]] = list(t_pred = T_pred,
-    #                              pseudot = pseudotime,
-    #                              spearman = ct_spearman,
-    #                              pearson = ct_pearson,
-    #                              adjust_chain = adjust_chain,
-    #                              adjust_t_pred = adjust_T_pred,
-    #                              adjust_pseudot = adjust_pseudotime,
-    #                              adjust_spearman = adjust_ct_spearman,
-    #                              adjust_pearson = adjust_ct_pearson,
-    #                              command = command)
-    #   names(iter_chain_cor)[1] =  paste0("iter_", mi, "_", ma, "_seq_", se)
-    #
-    # }else{
-    #   n = length(iter_chain_cor)
-    #   iter_chain_cor[[n+1]] = list(t_pred = T_pred,
-    #                                pseudot = pseudotime,
-    #                                spearman = ct_spearman,
-    #                                pearson = ct_pearson,
-    #                                adjust_chain = adjust_chain,
-    #                                adjust_t_pred = adjust_T_pred,
-    #                                adjust_pseudot = adjust_pseudotime,
-    #                                adjust_spearman = adjust_ct_spearman,
-    #                                adjust_pearson = adjust_ct_pearson,
-    #                                command = command)
-    #   names(iter_chain_cor)[n+1] <- paste0("iter_", mi, "_", ma, "_seq_", se)
-    # }
-
+  }else{
+    adjust_ct_spearman = adjust_ct_pearson = NULL
   }
 
-  mamba@iter_chain_cor = iter_chain_cor
+  # prepare
+  if(length(ch_rev)==0){
+    adjust_chain = NULL
+  }else{
+    adjust_chain = paste0("chain",ch_rev)
+  }
 
+  iter_chain_cor = list(t_pred = T_pred,
+                        pseudot = pseudotime,
+                        spearman = ct_spearman,
+                        pearson = ct_pearson,
+                        adjust_chain = adjust_chain,
+                        adjust_t_pred = adjust_T_pred,
+                        adjust_pseudot = adjust_pseudotime,
+                        adjust_spearman = adjust_ct_spearman,
+                        adjust_pearson = adjust_ct_pearson )
+
+  # save to object
+  mamba@iter_chain_cor = iter_chain_cor
   object@OptimResult$pse = mamba
   command = GetCommand()
   object@Command$pse$GetIterCor = command
@@ -243,20 +178,16 @@ GetIterCor <- function(object,
 #' @param iter_chain_cor_index index of iter_chain_cor from function GetIterCor
 #'
 GetPredT <- function(object,
-                     # iter_chain_cor_index = 1,
                      chains = c(1:10),
                      filter_chain = TRUE,
                      mean_th = 0.45,
                      adjust = TRUE){
 
-  # mamba = ct@OptimResult$pse
-  # murp = ct@MURP
-  # metadata = ct@MetaData
-  # iter_chain_cor_index = 1
-  # chains = 1:5
-  # adjust = TRUE
-  # filter_chain = FALSE
-  # mean_th = 0.3
+  # object=ct
+  # chains = c(1:10)
+  # filter_chain = TRUE
+  # mean_th = 0.45
+  # adjust = FALSE
 
   require(dplyr)
   mamba = getPse(object)
@@ -265,10 +196,9 @@ GetPredT <- function(object,
 
   t_pred_list = mamba@t_pred
   iter_chain_cor = mamba@iter_chain_cor
-  # iter_chain_cor = mamba@iter_chain_cor[[iter_chain_cor_index]]
 
   # get data from iter_chain_cor
-  if(adjust){
+  if(object@Settings@settings$chains_number>1 & adjust){
     t_pred = iter_chain_cor$adjust_t_pred
     pseudot = iter_chain_cor$adjust_pseudot
     ch_rev = iter_chain_cor$adjust_chain
@@ -281,16 +211,14 @@ GetPredT <- function(object,
   names(pseudot_r) = names(pseudot)
 
   # filter chains
-  chain_cor = cor(t( tail(pseudot_r,1)[[1]][chains,,drop=FALSE] ))
-  if(filter_chain){
+  if(object@Settings@settings$chains_number > 1 & filter_chain){
+    cat(1)
+    chain_cor = cor(t( tail(pseudot_r,1)[[1]][chains,,drop=FALSE] ))
     chain_cor_mean = apply(chain_cor, 2, mean)
     filter_chain = rownames(chain_cor)[which(chain_cor_mean > mean_th)]
   }else{
     filter_chain = paste0("chain", chains)
   }
-  # if(length(filter_chain)==0){
-  #   filter_chain = chains
-  # }
 
   # get mean pseudot
   mean_pseudot_r = lapply(pseudot_r, function(df) apply(df[filter_chain, ,drop=FALSE], 2, mean) )
@@ -309,40 +237,11 @@ GetPredT <- function(object,
     ct_cor = NULL
   }
 
-  # add command
-  # command = GetCommand()
-  # if(length(t_pred_list)==0){
-  #   t_pred_list[[1]] = list(t_pred = t_pred,
-  #                           pseudot = pseudot,
-  #                           mean_pseudot = mean_pseudot_r,
-  #                           cor = ct_cor,
-  #                           filter_chain = filter_chain,
-  #                           adjust = adjust,
-  #                           adjust_chain = ch_rev,
-  #                           command = command)
-  #   names(t_pred_list)[1] =  paste0(names(mamba@iter_chain_cor)[iter_chain_cor_index], "_filter_",
-  #                                   paste0(filter_chain, collapse = "_"),
-  #                                   "_adjust_", adjust)
-  # }else{
-  #   n = length(t_pred_list)
-  #   t_pred_list[[n+1]] = list(t_pred = t_pred,
-  #                             pseudot = pseudot,
-  #                             mean_pseudot = mean_pseudot_r,
-  #                             cor = ct_cor,
-  #                             filter_chain = filter_chain,
-  #                             adjust = adjust,
-  #                             adjust_chain = ch_rev,
-  #                             command = command)
-  #   names(t_pred_list)[n+1] = paste0(names(mamba@iter_chain_cor)[iter_chain_cor_index], "_filter_",
-  #                                    paste0(filter_chain, collapse = "_"),
-  #                                    "_adjust_", adjust)
-  # }
-
   t_pred_list = list(t_pred = t_pred,
                      pseudot = pseudot,
                      mean_pseudot = mean_pseudot_r,
                      cor = ct_cor,
-                     filter_chain = filter_chain,
+                     keep_chain = filter_chain,
                      adjust = adjust,
                      adjust_chain = ch_rev)
 
@@ -387,37 +286,37 @@ MapMURPLabelToAll <- function(vecc,
   return(orig_value)
 }
 
-#' GetPseudoTt
+#' #' GetPseudoTt
+#' #'
+#' #' @description
+#' #' mapping MURP label to all cells
+#' #'
+#' #' @param CellNum
+#' #' @param pred_t
+#' #' @param Cluster_Label
+#' #' @param CellName
+#' #'
+#' GetPseudoTt <- function(CellNum = NULL,
+#'                         pred_t = NULL,
+#'                         Cluster_Label = NULL,
+#'                         CellName = NULL) {
+#'   names(pred_t) = names( table(Cluster_Label) )
+#'   if(is.null(CellNum)){
+#'     CellNum = length(Cluster_Label)
+#'   }
+#'   Cell_Time = rep(0,CellNum)
+#'   # a <- as.numeric( rownames(as.matrix(table(Cluster_Label))) )
+#'   a <- rownames(as.matrix(table(Cluster_Label)))
+#'   for(i in a) {
+#'     Cell_Time[which(Cluster_Label == i)] = pred_t[as.character(i)]
+#'   }
 #'
-#' @description
-#' mapping MURP label to all cells
+#'   if (!is.null(CellName)) {
+#'     names(Cell_Time) <- CellName
+#'   }
 #'
-#' @param CellNum
-#' @param pred_t
-#' @param Cluster_Label
-#' @param CellName
-#'
-GetPseudoTt <- function(CellNum = NULL,
-                        pred_t = NULL,
-                        Cluster_Label = NULL,
-                        CellName = NULL) {
-  names(pred_t) = names( table(Cluster_Label) )
-  if(is.null(CellNum)){
-    CellNum = length(Cluster_Label)
-  }
-  Cell_Time = rep(0,CellNum)
-  # a <- as.numeric( rownames(as.matrix(table(Cluster_Label))) )
-  a <- rownames(as.matrix(table(Cluster_Label)))
-  for(i in a) {
-    Cell_Time[which(Cluster_Label == i)] = pred_t[as.character(i)]
-  }
-
-  if (!is.null(CellName)) {
-    names(Cell_Time) <- CellName
-  }
-
-  return(Cell_Time)
-}
+#'   return(Cell_Time)
+#' }
 
 #' GetCorMatrix
 #'

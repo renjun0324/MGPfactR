@@ -13,7 +13,7 @@ SaveMURPDatToJulia <- function(object,
   # murp_matrix = ct@MURP$Recommended_K_cl$centers
   # save(murp_matrix, file = "1_murp/murp_matrix.rda")
   Q = murp_pc_number
-  murp_matrix_pca = object@MURP$centersPCA$x[,1:Q]
+  murp_matrix_pca = object@MURP$centersPCA$x[,1:Q,drop=FALSE]
   save(murp_matrix_pca, file = "1_murp/murp_matrix_pca.rda")
 }
 
@@ -151,10 +151,11 @@ addprocs(nc)
 #' @export
 #'
 ImportPseResult <- function(object,
-                            init = FALSE){
+                            init = FALSE,
+                            julia_home = FALSE){
 
   library(JuliaCall)
-  julia_setup(JULIA_HOME = "/public/home/renjun/tool/julia-1.6.6/bin")
+  julia_setup(JULIA_HOME = julia_home)
 
   if(init){
     cmd = 'chains = sim.chains
@@ -235,6 +236,7 @@ GetSigmaFromJulia <- function(object,
   julia_assign("sdf",sdf)
   # julia_command("using RCall; @rget sdf")
 
+  julia_command("using KernelFunctions")
   cmd = 'P = size(sdf)[1]
 L = size(filter(x->occursin("Tb", string(x)), names(sdf)))[1]
 Q = size(filter(x->occursin("PC", string(x)), names(sdf)))[1]

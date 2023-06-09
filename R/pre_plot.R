@@ -149,85 +149,85 @@ PCANestedGridPlot <- function(pca_result = NULL,
   return(p)
 }
 
-#' MURPNestedGridPlot
+#' #' MURPNestedGridPlot
+#' #'
+#' #' @Description:
+#' #' Partial zoom
+#' #'
+#' #' Arguments:
+#' #' @param murp form MURP
+#' #'
+#' MURPNestedGridPlot <- function(murp = NULL){
 #'
-#' @Description:
-#' Partial zoom
+#'   require(ggplot2)
+#'   require(reshape2)
+#'   require(dplyr)
 #'
-#' Arguments:
-#' @param murp form MURP
+#'   rj.ftheme <-   theme(panel.background = element_rect(fill='transparent', color='black'),
+#'                        panel.grid.major=element_blank(),
+#'                        panel.grid.minor=element_blank(),
+#'                        #panel.border = element_rect(fill='transparent', color='transparent'),
+#'                        plot.title = element_text(size = 12), # centers, hjust = 0.5
+#'                        plot.subtitle= element_text(size = 10),
+#'                        #plot.caption = element_text()，
+#'                        legend.key = element_rect( fill = "white"),
+#'                        #axis.title=element_text(size = 12),
+#'                        #axis.ticks=element_blank(),
+#'                        #axis.line = element_line(colour = 'black'),
+#'                        axis.ticks = element_blank(),
+#'                        #axis.text.y = element_blank(),
+#'                        axis.text.x = element_text(vjust=0.5, size = 8) )
+#'   rj.ftheme.small <-   theme(panel.background = element_rect(fill='transparent', color='black'),
+#'                              panel.grid.major=element_blank(),
+#'                              panel.grid.minor=element_blank(),
+#'                              #panel.border = element_rect(fill='transparent', color='transparent'),
+#'                              plot.title = element_text(size = 8), # centers, hjust = 0.5
+#'                              plot.subtitle= element_text(size = 10),
+#'                              #plot.caption = element_text()，
+#'                              legend.key = element_rect( fill = "white"),
+#'                              #axis.title=element_text(size = 12),
+#'                              #axis.ticks=element_blank(),
+#'                              #axis.line = element_line(colour = 'black'),
+#'                              axis.ticks = element_blank(),
+#'                              #axis.text.y = element_blank(),
+#'                              axis.text.x = element_text(vjust=0.5, size = 8)   )
 #'
-MURPNestedGridPlot <- function(murp = NULL){
-
-  require(ggplot2)
-  require(reshape2)
-  require(dplyr)
-
-  rj.ftheme <-   theme(panel.background = element_rect(fill='transparent', color='black'),
-                       panel.grid.major=element_blank(),
-                       panel.grid.minor=element_blank(),
-                       #panel.border = element_rect(fill='transparent', color='transparent'),
-                       plot.title = element_text(size = 12), # centers, hjust = 0.5
-                       plot.subtitle= element_text(size = 10),
-                       #plot.caption = element_text()，
-                       legend.key = element_rect( fill = "white"),
-                       #axis.title=element_text(size = 12),
-                       #axis.ticks=element_blank(),
-                       #axis.line = element_line(colour = 'black'),
-                       axis.ticks = element_blank(),
-                       #axis.text.y = element_blank(),
-                       axis.text.x = element_text(vjust=0.5, size = 8) )
-  rj.ftheme.small <-   theme(panel.background = element_rect(fill='transparent', color='black'),
-                             panel.grid.major=element_blank(),
-                             panel.grid.minor=element_blank(),
-                             #panel.border = element_rect(fill='transparent', color='transparent'),
-                             plot.title = element_text(size = 8), # centers, hjust = 0.5
-                             plot.subtitle= element_text(size = 10),
-                             #plot.caption = element_text()，
-                             legend.key = element_rect( fill = "white"),
-                             #axis.title=element_text(size = 12),
-                             #axis.ticks=element_blank(),
-                             #axis.line = element_line(colour = 'black'),
-                             axis.ticks = element_blank(),
-                             #axis.text.y = element_blank(),
-                             axis.text.x = element_text(vjust=0.5, size = 8)   )
-
-  bi <- data.frame(K = murp$k,
-                   BIC = murp$BIC)
-
-  bi_local <- bi[order(bi$K,decreasing = FALSE),][1:10,]
-  highlight_bi <- bi_local %>% dplyr::filter(BIC==min(bi_local$BIC))
-
-  p1 <- ggplot(bi, aes(x = K, y = BIC)) +
-    geom_point(color = '#2F4F4F', alpha = 0.6, size = 3) +
-    geom_vline(aes(xintercept = murp$Recommended_K), colour="#990000", linetype="dashed") +
-    labs(title="Likelihood Function Value Corresponding to each K", y = "pseudo-BIC", x = "Downsampling Number") +
-    theme(axis.text.y = element_text(hjust=0.5, angle = 90)) +
-    rj.ftheme
-
-  p2 <- ggplot(bi_local, aes(x = K, y = BIC)) +
-    geom_point(color = 'sienna1', alpha = 0.6, size = 1.8) +
-    geom_point(data = highlight_bi, aes(x = K, y = BIC), color = 'blue', alpha = 0.7) +
-    geom_vline(aes(xintercept = murp$Recommended_K), colour="#990000", linetype="dashed") +
-    labs(x='', y='') +
-    # scale_y_continuous(labels = scientific,
-    #                    limits = c(min(bi_local$loglike),
-    #                               max(bi_local$loglike)),
-    #                    breaks = seq(min(bi_local$loglike),
-    #                                 max(bi_local$loglike),
-    #                                 (max(bi_local$loglike)-min(bi_local$loglike)))) +
-    # theme(axis.text.y = element_text(hjust=0.5, angle = 90)) +
-    scale_y_continuous(breaks = NULL) +
-    rj.ftheme.small
-
-  g <- ggplotGrob(p2)
-  p3 <- p1 + annotation_custom(g, xmin = max(bi$K)*0.52, xmax = max(bi$K)*0.92,
-                               ymin = abs(max(bi$BIC))-( abs(max(bi$BIC))-abs(min(bi$BIC)) )/4*2.05,
-                               ymax = max(bi$BIC) )
-
-  return(p3)
-
-}
+#'   bi <- data.frame(K = murp$k,
+#'                    BIC = murp$BIC)
+#'
+#'   bi_local <- bi[order(bi$K,decreasing = FALSE),][1:10,]
+#'   highlight_bi <- bi_local %>% dplyr::filter(BIC==min(bi_local$BIC))
+#'
+#'   p1 <- ggplot(bi, aes(x = K, y = BIC)) +
+#'     geom_point(color = '#2F4F4F', alpha = 0.6, size = 3) +
+#'     geom_vline(aes(xintercept = murp$Recommended_K), colour="#990000", linetype="dashed") +
+#'     labs(title="Likelihood Function Value Corresponding to each K", y = "pseudo-BIC", x = "Downsampling Number") +
+#'     theme(axis.text.y = element_text(hjust=0.5, angle = 90)) +
+#'     rj.ftheme
+#'
+#'   p2 <- ggplot(bi_local, aes(x = K, y = BIC)) +
+#'     geom_point(color = 'sienna1', alpha = 0.6, size = 1.8) +
+#'     geom_point(data = highlight_bi, aes(x = K, y = BIC), color = 'blue', alpha = 0.7) +
+#'     geom_vline(aes(xintercept = murp$Recommended_K), colour="#990000", linetype="dashed") +
+#'     labs(x='', y='') +
+#'     # scale_y_continuous(labels = scientific,
+#'     #                    limits = c(min(bi_local$loglike),
+#'     #                               max(bi_local$loglike)),
+#'     #                    breaks = seq(min(bi_local$loglike),
+#'     #                                 max(bi_local$loglike),
+#'     #                                 (max(bi_local$loglike)-min(bi_local$loglike)))) +
+#'     # theme(axis.text.y = element_text(hjust=0.5, angle = 90)) +
+#'     scale_y_continuous(breaks = NULL) +
+#'     rj.ftheme.small
+#'
+#'   g <- ggplotGrob(p2)
+#'   p3 <- p1 + annotation_custom(g, xmin = max(bi$K)*0.52, xmax = max(bi$K)*0.92,
+#'                                ymin = abs(max(bi$BIC))-( abs(max(bi$BIC))-abs(min(bi$BIC)) )/4*2.05,
+#'                                ymax = max(bi$BIC) )
+#'
+#'   return(p3)
+#'
+#' }
 
 #' PlotLabelSplit
 #'
@@ -318,6 +318,7 @@ PlotLabelSplit <- function(object = NULL,
     })
     p <- wrap_plots(plist, ncol = 1)
     ggplot2::ggsave(paste0(dir1, c, "_murp_label.pdf"), p,
+                    device = cairo_pdf,
                     width = width, height = ceiling(len/2)*8, limitsize = FALSE)
     # ggplot2::ggsave(paste0(dir1, c, "_murp_label.png"), p, width = width, height = ceiling(len/2)*8, limitsize = FALSE)
 
@@ -375,7 +376,7 @@ PlotLabelMerge <- function(object = NULL,
         rj.ftheme
     })
     p <- wrap_plots(plist, ncol = 2, guides = "collect")
-    ggplot2::ggsave(paste0(dir2, "1_", lab,".pdf"), p, width = width, height = 8)
+    ggplot2::ggsave(paste0(dir2, "1_", lab,".pdf"), p, device = cairo_pdf, width = width, height = 8)
     # ggplot2::ggsave(paste0(dir2, "1_", lab,".png"), p, width = width, height = 8)
 
     ### 2. murp
@@ -406,7 +407,7 @@ PlotLabelMerge <- function(object = NULL,
         rj.ftheme
     })
     p <- wrap_plots(plist, ncol = 2, guides = "collect")
-    ggplot2::ggsave(paste0(dir2, "2_murp_", lab,".pdf"), p, width = width, height = 8)
+    ggplot2::ggsave(paste0(dir2, "2_murp_", lab,".pdf"), p, device = cairo_pdf, width = width, height = 8)
     # ggplot2::ggsave(paste0(dir2, "2_murp_", lab,".png"), p, width = width, height = 8)
 
     ### 3. murp_label
@@ -439,7 +440,7 @@ PlotLabelMerge <- function(object = NULL,
         rj.ftheme
     })
     p <- wrap_plots(plist, ncol = 2, guides = "collect")
-    ggplot2::ggsave(paste0(dir2, "2_murp_label_",lab,".pdf"), p, width = width, height = 8)
+    ggplot2::ggsave(paste0(dir2, "2_murp_label_",lab,".pdf"), p, device = cairo_pdf, width = width, height = 8)
     # ggplot2::ggsave(paste0(dir2, "2_murp_label_",lab,".png"), p, width = width, height = 8)
   }
 }

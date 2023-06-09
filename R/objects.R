@@ -283,8 +283,7 @@ CreateDimReducObject <- function(pca = NULL,
                  PCA = NULL,
                  tSNE = NULL,
                  DM = NULL,
-                 UMAP = NULL,
-                 Command = NULL)
+                 UMAP = NULL)
 
   return(dimreduc)
 
@@ -491,7 +490,9 @@ SetSettings <- function(object,
                  pse_optim_iterations = pse_optim_iterations,
                  start_murp = start_murp,
                  chains_number = chains_number)
-  object@Settings@settings = c(setting, object@Settings@settings)
+  new_c = setdiff(names(object@Settings@settings),names(setting))
+  x = c(object@Settings@settings[new_c],setting)
+  object@Settings@settings = x
   return(object)
 }
 
@@ -731,48 +732,6 @@ setMethod("getTrack",
             return(object@OptimResult$track)
             invisible(NULL)
           })
-
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#                             MURP downsampling
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-MURPDownsampling <- function(object,
-                             omega = 0.5,
-                             iter = 10,
-                             seed = 723,
-                             fast = T,
-                             max_murp = 500,
-                             cores = 1,
-                             pca.center = FALSE,
-                             pca.scale = FALSE,
-                             plot = T){
-
-  require(MURP)
-  require(ggplot2)
-  require(patchwork)
-
-  object@MURP <- MURP(Data = object@assay$data_matrix,
-                      cores = cores,
-                      omega = omega,
-                      iter = iter,
-                      seed = seed,
-                      fast = fast,
-                      max_murp = max_murp)
-  object@MetaData$murp_cluster <- object@MURP$Recommended_K_cl$cluster
-  object@MURP$centersPCA <- prcomp(object@MURP$Recommended_K_cl$centers, center = pca.center, scale. = pca.scale)
-
-  if(plot){
-    ggsave("1_murp/murp_bic_k.pdf", MURPNestedGridPlot(object@MURP), width = 3.5, height = 3.5)
-
-    pl = PCANestedGridPlot(pca_result = object@MURP$centersPCA, sd_cutoff = 1, max_pc = 100)
-    p = wrap_plots(pl, ncol = 3, guides = "collect")
-    ggsave("1_murp/pca_scree_30pc.pdf",p, width = 10, height = 3.7)
-  }
-
-  command = GetCommand()
-  object@Command$murp$MURPDownsampling = command
-  return(object)
-}
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #                                   back up
