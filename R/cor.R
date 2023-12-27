@@ -4,18 +4,14 @@
 #' use this function, obtain correlations under different
 #' iterations of different chains
 #'
-#'
-#' @param mamba mamba result object
-#' @param murp murp object
-#' @param metadata attribute of cell
-#' @param iteration_list a list, list(c(1, 2000),c(1,4000))
-#' @param adjust TRUE
-#'
+#' @param object mgpfact object
+#' @param iteration_list a list contain iteration range, eg. list(c(1, 2000),c(1,4000))
+#' @param chains The Markov chains for parameter statistics;
+#' if not specified, statistics will be conducted for all
+#' @export
 GetIterCor <- function(object,
                        iteration_list = NULL,
                        chains = NULL){
-
-  require(dplyr)
   mamba = getPse(object)
   murp = object@MURP
   metadata = object@MetaData
@@ -66,7 +62,7 @@ GetIterCor <- function(object,
   # get cor
   if("truetime" %in% colnames(metadata)){
     truetime <- as.numeric(as.character(metadata$truetime))
-    ct_spearman <- matrix(0, nc = length(iteration_list), nr = length(chains))
+    ct_spearman <- matrix(0, ncol = length(iteration_list), nrow = length(chains))
     colnames(ct_spearman) <- sapply(iteration_list, function(c){paste0("iter_",c[1],"_",c[2])})
     rownames(ct_spearman) <- paste0('chain', chains)
     ct_pearson <- ct_spearman
@@ -120,7 +116,7 @@ GetIterCor <- function(object,
   names(adjust_pseudotime) <- paste0("iter_", lapply(iteration_list, paste0, collapse="_"))
 
   # get adjust cor
-  adjust_ct_spearman <- matrix(0, nc = length(iteration_list), nr = length(chains))
+  adjust_ct_spearman <- matrix(0, ncol =  length(iteration_list), nrow =  length(chains))
   colnames(adjust_ct_spearman) <- sapply(iteration_list, function(c){paste0("iter_",c[1],"_",c[2])})
   rownames(adjust_ct_spearman) <- paste0('chain', chains)
   adjust_ct_pearson <- adjust_ct_spearman
@@ -169,14 +165,16 @@ GetIterCor <- function(object,
 #' use this function, obtain correlations under different
 #' iterations of different chains
 #'
-#' @param mamba mamba result object
-#' @param murp murp object
-#' @param metadata attribute of cell
-#' @param iteration_list a list, list(c(1, 2000),c(1,4000))
-#' @param chains c(1,2,3,4)
-#' @param adjust TRUE
-#' @param iter_chain_cor_index index of iter_chain_cor from function GetIterCor
-#'
+#' @param object mgpfact object
+#' @param chains The Markov chains for parameter statistics;
+#' if not specified, statistics will be conducted for all
+#' @param filter_chain Logical value, indicating whether to discard some low-quality chains
+#' @param mean_th Filtering Markov chains based on the threshold set
+#' for the correlation of pseudotime between different Markov chains
+#' @param adjust Logical value,
+#' indicating whether to automatically adjust the representation of
+#' differentiation direction by pseudotime
+#' @export
 GetPredT <- function(object,
                      chains = c(1:10),
                      filter_chain = TRUE,
@@ -189,7 +187,6 @@ GetPredT <- function(object,
   # mean_th = 0.45
   # adjust = FALSE
 
-  require(dplyr)
   mamba = getPse(object)
   murp = object@MURP
   metadata = object@MetaData
@@ -226,7 +223,7 @@ GetPredT <- function(object,
   # get cor
   if("truetime" %in% colnames(metadata)){
     truetime = as.numeric(as.character(metadata$truetime))
-    ct_cor <- matrix(0, nc = length(names(pseudot_r)), nr = 2)
+    ct_cor <- matrix(0, ncol = length(names(pseudot_r)), nrow = 2)
     colnames(ct_cor) <- names(pseudot_r)
     rownames(ct_cor) <- c("spearman", "pearson")
     for (k in 1:length(pseudot_r)){
@@ -258,9 +255,9 @@ GetPredT <- function(object,
 #' @description
 #' mapping MURP label to all cells
 #'
-#' @param vecc
-#' @param orig
-#'
+#' @param vecc new label
+#' @param orig murp label for each cell
+#' @export
 MapMURPLabelToAll <- function(vecc,
                               orig){
 
@@ -286,16 +283,17 @@ MapMURPLabelToAll <- function(vecc,
   return(orig_value)
 }
 
-#' #' GetPseudoTt
-#' #'
-#' #' @description
-#' #' mapping MURP label to all cells
-#' #'
-#' #' @param CellNum
-#' #' @param pred_t
-#' #' @param Cluster_Label
-#' #' @param CellName
-#' #'
+# ------------------
+#' GetPseudoTt
+#'
+#' @description
+#' mapping MURP label to all cells
+#'
+#' @param CellNum
+#' @param pred_t
+#' @param Cluster_Label
+#' @param CellName
+#'
 #' GetPseudoTt <- function(CellNum = NULL,
 #'                         pred_t = NULL,
 #'                         Cluster_Label = NULL,

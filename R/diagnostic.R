@@ -1,74 +1,3 @@
-#' GetGewDiag
-#'
-#' @description
-#' use this function with julia, obtain the number of convergences
-#' for each parameter under different iterations of different chains
-#'
-#' @param mamba mamba result object
-#' @param gvalue gew_value
-#' @param cnames gew_colnames
-#' @param rnames gew_rownames
-#' @param chains chains
-#' @param diagnosticMethods "gelmandiag", "gewekediag",
-#' "heideldiag", "rafterydiag"
-#' @export
-GetGewDiag <- function(mamba = NULL,
-                       gvalue = NULL,
-                       cnames = NULL,
-                       rnames = NULL,
-                       diagnosticMethods = NULL){
-
-  require(stringr)
-
-  chains <- mamba@chains
-  diag_object <- mamba@diagnostic
-
-  if(length(diag_object) > 0){
-    if(length(grep(pattern = diagnosticMethods, names(diag_object))) > 0 ){
-      stop("You have already diagnosed in this way.")
-    }
-  }
-
-  diag <- lapply(1:dim(gvalue)[3], function(x){
-    tmp = gvalue[,,x]
-    rownames(tmp) = rnames
-    colnames(tmp) = cnames
-    tmp
-  })
-
-  cs_number <- t(as.data.frame.numeric(table(str_split_fixed(rnames,"\\[",2)[,1])))
-
-  cs <- matrix(0, ncol = ncol(cs_number), nrow = length(chains) + 1)
-  colnames(cs) <- colnames(cs_number)
-  cs[1,] <- cs_number[1,]
-  rownames(cs) <- c('pal_number', paste0('chain',chains))
-
-  for(i in chains){
-    chain = paste0("chain",i)
-    for (j in colnames(cs)){
-      if(cs[1, j]==1){
-        cs[chain, j] <- length(which(diag[[i]][which(rnames==j), 2] > 0.05))
-      }else{
-        cs[chain, j] <- length(which(diag[[i]][grep(j,rnames), 2] > 0.05))
-      }
-    }
-    print("next")
-  }
-
-  # set
-  if(length(diag_object)==0){
-    diag_object[[1]] = list(diag_frame = diag, converged_param_numbers = cs,diag_name = diagnosticMethods)
-    names(diag_object)[1] =  diagnosticMethods
-  }else{
-    n = length(diag_object)
-    diag_object[[n+1]] = list(diag_frame = diag, converged_param_numbers = cs,diag_name = diagnosticMethods)
-    names(diag_object)[n+1] = diagnosticMethods
-  }
-
-  mamba@diagnostic = diag_object
-
-  return(mamba)
-}
 
 #' GetParamMeanChain
 #'
@@ -81,8 +10,8 @@ GetGewDiag <- function(mamba = NULL,
 #' @param whichPos 'all' / c(1,2,3)
 #' @param iter_range Iteration range, default is c(1, 3000)
 #' @param cores threads
-#'
 #' @export
+#'
 GetParamMeanChain <- function(mamba = NULL,
                               murp = NULL,
                               param = NULL,
@@ -90,11 +19,12 @@ GetParamMeanChain <- function(mamba = NULL,
                               iter_range = c(1,3000),
                               cores = 1
 ){
+  # importFrom("ggplot2","ggplot", "ggsave","aes", "labs", "geom_line","facet_wrap")
+  # require(reshape)
+  # require(stringr)
+  # require(pbmcapply)
+  # require(doParallel)
 
-  require(reshape)
-  require(stringr)
-  require(pbmcapply)
-  require(doParallel)
   # if(is.null(dimnames(mamba_object$forcast_time@sample_value))){
   #   dimnames(mamba_object$forcast_time@sample_value) <- mamba_object$forcast_time@dimnames
   # }
@@ -186,11 +116,13 @@ GetParamMeanChain <- function(mamba = NULL,
 #' @description
 #' Get the average value of all parameters on each chain
 #'
-#' @param mamba mamba object
-#' @param murp murp result
-#' @param param parameter name
+
+#' @param object mgpfact object
 #' @param iter_range Iteration range, default is c(1, 3000)
 #' @param cores threads
+#' @param aspect pse or track sub object
+#' @param save whether save to object
+#'
 #' @export
 #'
 GetAllParamMeanChain <- function(object,
@@ -241,10 +173,9 @@ GetAllParamMeanChain <- function(object,
 #' @description
 #' Get the average value of all parameters on each chain
 #'
-#' @param mamba mamba object
-#' @param murp murp result
-#' @param param parameter name
+#' @param object mgpfact object
 #' @param iter_range Iteration range, default is c(1, 3000)
+#' @param params parameter name, can be a character vector.
 #' @export
 #'
 PlotParamSampling <- function(object,
@@ -256,7 +187,6 @@ PlotParamSampling <- function(object,
   # iter_range = rep(getParams(ct, "pse_optim_iterations"),2)
   # param = "m_t"
 
-  require(reshape2)
   if(is.null(iter_range)){
     iter_range = c(1, mamba@iter)
   }
@@ -278,7 +208,7 @@ PlotParamSampling <- function(object,
   df = reshape2::melt(tmp)
   colnames(df) = c("iter", "param", "chains", "value")
 
-  ggplot(df,aes(x = iter, y = value, color = chains)) +
+  ggplot(df,aes(x = .data$iter, y = .data$value, color = .data$chains)) +
     # geom_point(size = 0.5, shape = 21) +
     geom_line(size = 0.3, alpha = 0.8) +
     scale_color_simpsons() +
@@ -297,25 +227,21 @@ PlotParamSampling <- function(object,
 }
 
 
-#' PlotParamSampling
+#' PlotParamLogpdf
 #'
 #' @description
 #' Get the average value of all parameters on each chain
 #'
-#' @param mamba mamba object
-#' @param murp murp result
-#' @param param parameter name
+#' @param object mgpfact object
 #' @param iter_range Iteration range, default is c(1, 3000)
+#'
 #' @export
 #'
-PlotParamLogpdf <- function(object = NULL, iter_range = NULL){
-
-  require(purrr)
+PlotParamLogpdf <- function(object = NULL,
+                            iter_range = NULL){
 
   mamba = getPse(object)
   murp = object@MURP
-
-  require(reshape2)
   logpdf = mamba@logpdf$logpdf
   if(is.null(iter_range)){
     iter_range = c(1, mamba@iter)
@@ -328,9 +254,9 @@ PlotParamLogpdf <- function(object = NULL, iter_range = NULL){
     x$iter = 1:nrow(x)
     x
   })
-  df = reshape2::melt(tmp, id.vars = c("params","iter"))
+  df = melt(tmp, id.vars = c("params","iter"))
 
-  ggplot(df,aes(x = iter, y = value, color = variable)) +
+  ggplot(df,aes(x = .data$iter, y = .data$value, color = .data$variable)) +
     # geom_point(size = 0.5, shape = 21) +
     geom_line(size = 0.3, alpha = 0.8) +
     scale_color_simpsons() +
@@ -345,7 +271,7 @@ PlotParamLogpdf <- function(object = NULL, iter_range = NULL){
   dimnames(tmp) = list(1:nrow(tmp), paste0("chain ",1:ncol(tmp)))
   tmp$iter = 1:nrow(tmp)
   df = reshape2::melt(tmp, id.vars = c("iter"))
-  ggplot(df,aes(x = iter, y = value, color = variable)) +
+  ggplot(df,aes(x = .data$iter, y = .data$value, color = .data$variable)) +
     # geom_point(size = 0.5, shape = 21) +
     geom_line(size = 0.7, alpha = 0.8) +
     scale_color_simpsons() +
@@ -357,19 +283,16 @@ PlotParamLogpdf <- function(object = NULL, iter_range = NULL){
 
 #' CovHeatmap
 #'
-#' @Description:
+#' @description:
 #' get the covariance matrix
 #'
-#' @param object celltrek object
-#' @param pse_sdf tThe data frame obtained by the function GetPseSdf
-#' @param load logical value, whether to load julia's environment
-#'
+#' @param object MGPfact object
 #' @export
 #'
 PlotCovHeatmap <- function(object){
 
-  require(ComplexHeatmap)
   pl = list()
+  L = object@Settings@settings$trajectory_number
   ord = order(GetMURPInfo(object)$T)
   s = object@GPR$murp_cov$cov
   p = Heatmap(s[ord,ord],
@@ -416,253 +339,323 @@ PlotCovHeatmap <- function(object){
   dev.off()
 }
 
+#------------
+#' GetParamIter
+#'
+#' @description
+#' Mamba parameter iteration result
+#'
+#' @param mamba mamba object
+#' @param murp murp result
+#' @param param parameter name
+#' @param whichPos 'all' / c(1,2,3)
+#' @param cores threads
+#'
+#' @export
+# GetParamIter <- function(mamba = NULL,
+#                          murp = NULL,
+#                          param = NULL,
+#                          whichPos = 'all',
+#                          cores = 2
+# ){
+#
+#   require(reshape)
+#   require(stringr)
+#   require(pbmcapply)
+#   require(doParallel)
+#   # if(is.null(dimnames(mamba_object$forcast_time@sample_value))){
+#   #   dimnames(mamba_object$forcast_time@sample_value) <- mamba_object$forcast_time@dimnames
+#   # }
+#
+#   K <- murp$Recommended_K
+#   all_params <- mamba@dimnames[[2]]
+#   sample_value <- mamba@sample_value
+#   param_number <- as.data.frame.numeric(table(str_split_fixed(all_params,"\\[",2)[,1]))
+#   L <- sqrt(param_number['R',])
+#
+#   dimnames(sample_value) <- list(paste0("iter", 1:dim(sample_value)[1]),
+#                                  all_params,
+#                                  paste0("chain", 1:dim(sample_value)[3]))
+#
+#   # check param number
+#   if(param %in% rownames(param_number) ){
+#
+#     if(param_number[param,]==1){
+#
+#       t = sample_value[,which(all_params==param),]
+#       df = reshape::melt(t)
+#       df = data.frame(apply(df,2,as.character),
+#                       stringsAsFactors = FALSE)
+#       colnames(df) <- c('iter','chain','value')
+#       df$iter <- unlist(pbmclapply(df$iter,
+#                                    function(i){substr(x = i,start = 5,stop = nchar(i))},
+#                                    mc.cores = cores))
+#       df$param <- as.factor(param)
+#     }else{
+#       if(whichPos == 'all'){
+#         t = sample_value[,grep(pattern=paste0(param, "\\["),all_params),]
+#       }else{
+#         if(param == "Y" | param == "Z" | param == "pi" | param == "R" | param == "C"){
+#           index_name = unlist(lapply(whichPos, function(i) paste0(param,"[",i[1],", ",i[2],"]")) )
+#           t = sample_value[, index_name, ]
+#         }else if(param == "xx"){
+#           #index_name = unlist(lapply(whichPos, function(i) paste0(param,"[",i[1],", ",i[2],"]")) )
+#           index_name = unlist(lapply(whichPos, function(i) paste0(param,"[",i[1],", ",i[2],", ",i[3],"]")) )
+#           t = sample_value[, index_name, ]
+#         }else{
+#           t = sample_value[, paste0(param, "[",whichPos,"]"), ]
+#         }
+#       }
+#
+#       # create df
+#       df <- reshape::melt(t)
+#       df <- data.frame(apply(df,2,as.character),
+#                        stringsAsFactors = FALSE)
+#       colnames(df) <- c('iter','param','chain','value')
+#       df$iter <- unlist(mclapply(df$iter,
+#                                  function(i){substr(x = i,start = 5,stop = nchar(i))},
+#                                  mc.cores = cores))
+#     }
+#   }
+#   # set attributes
+#   if(param %in% rownames(param_number)){
+#     if(param_number[param,]!=1){
+#
+#       if(param == "Y" | param == 'Z' | param == "pi" | param == 'C'){                   #---Y
+#         if(whichPos=='all'){
+#           level <- paste0(param, "[", 1:(length(table(df$param))/K) )
+#           level <- unlist(lapply(level, function(a) paste0(a, ", ", 1:K, "]")) )
+#           df$param <- factor(df$param, levels = level)
+#         }else{
+#           df$param <- factor(df$param)
+#         }
+#       }else if(param == 'R'){             #---R
+#         if(whichPos=='all'){
+#           level <- paste0(param, "[", 1:(length(table(df$param))/L) )
+#           level <- unlist(lapply(level, function(a) paste0(a, ", ", 1:L, "]")) )
+#           df$param <- factor(df$param, levels = level)
+#         }else{
+#           df$param <- factor(df$param)
+#         }
+#       }else if(param == "xx"){            #---xx
+#         if(whichPos=='all'){
+#           level <- paste0(param, "[",1:(length(table(df$param))/2) )
+#           level <- unlist(lapply(level, function(a) paste0(a, ", ", 1:length(grep(pattern="T\\[",all_params)), ", ")) )
+#           level <- unlist(lapply(level, function(a) paste0(a, 1:2, "]")) )
+#           df$param <- factor(df$param, levels = level)
+#         }else{
+#           df$param <- factor(df$param)
+#         }
+#       }else{
+#         if(whichPos=='all'){
+#           df$param <- factor(df$param, levels = paste0(param, "[",1:length(table(df$param)),"]"))
+#         }else{
+#           df$param <- factor(df$param, levels = paste0(param, "[",whichPos,"]"))
+#         }
+#       }
+#
+#     }
+#   }
+#   df$chain <- factor(df$chain, levels = paste0("chain",1:dim(sample_value)[3]))
+#
+#   return(df)
+# }
 
-#' #' GetParamIter
-#' #'
-#' #' @description
-#' #' Mamba parameter iteration result
-#' #'
-#' #' @param mamba mamba object
-#' #' @param murp murp result
-#' #' @param param parameter name
-#' #' @param whichPos 'all' / c(1,2,3)
-#' #' @param cores threads
-#' #'
-#' #' @export
-#' GetParamIter <- function(mamba = NULL,
-#'                          murp = NULL,
-#'                          param = NULL,
-#'                          whichPos = 'all',
-#'                          cores = 2
-#' ){
+#' GetParamMeanIter
 #'
-#'   require(reshape)
-#'   require(stringr)
-#'   require(pbmcapply)
-#'   require(doParallel)
-#'   # if(is.null(dimnames(mamba_object$forcast_time@sample_value))){
-#'   #   dimnames(mamba_object$forcast_time@sample_value) <- mamba_object$forcast_time@dimnames
-#'   # }
+#' @description
+#' Get the mean value of the parameters under the corresponding iteration
 #'
-#'   K <- murp$Recommended_K
-#'   all_params <- mamba@dimnames[[2]]
-#'   sample_value <- mamba@sample_value
-#'   param_number <- as.data.frame.numeric(table(str_split_fixed(all_params,"\\[",2)[,1]))
-#'   L <- sqrt(param_number['R',])
+#' @param mamba mamba object
+#' @param murp murp result
+#' @param param parameter name
+#' @param whichPos 'all' / c(1,2,3)
+#' @param cores threads
 #'
-#'   dimnames(sample_value) <- list(paste0("iter", 1:dim(sample_value)[1]),
-#'                                  all_params,
-#'                                  paste0("chain", 1:dim(sample_value)[3]))
+#' @export
+# GetParamMeanIter <- function(mamba = NULL,
+#                              murp = NULL,
+#                              param = NULL,
+#                              whichPos = 'all',
+#                              cores = 2
+# ){
+#
+#   require(reshape)
+#   require(stringr)
+#   require(pbmcapply)
+#   require(doParallel)
+#
+#   # if(is.null(dimnames(mamba_object$forcast_time@sample_value))){
+#   #   dimnames(mamba_object$forcast_time@sample_value) <- mamba_object$forcast_time@dimnames
+#   # }
+#
+#   K <- murp$Recommended_K
+#   all_params <- mamba@dimnames[[2]]
+#   sample_value <- mamba@sample_value
+#   param_number <- as.data.frame.numeric(table(str_split_fixed(all_params,"\\[",2)[,1]))
+#   L <- sqrt(param_number['R',])
+#
+#   dimnames(sample_value) <- list(paste0("iter", 1:dim(sample_value)[1]),
+#                                  all_params,
+#                                  paste0("chain", 1:dim(sample_value)[3]))
+#
+#   # check param number
+#   if(param %in% rownames(param_number) ){
+#
+#     if(param_number[param,]==1){
+#
+#       t = sample_value[,which(all_params==param),]
+#       t2 = t
+#       for(i in 1:dim(t2)[1]){
+#         for(j in 1:dim(t2)[2]){
+#           t2[i, j] =  mean(t2[1:i, j])
+#         }
+#       }
+#       df = reshape::melt(t2)
+#
+#       df = data.frame(apply(df,2,as.character),
+#                       stringsAsFactors = FALSE)
+#       colnames(df) <- c('iter','chain','value')
+#       df$iter <- unlist(pbmclapply(df$iter,
+#                                    function(i){substr(x = i,start = 5,stop = nchar(i))},
+#                                    mc.cores = cores))
+#       df$param <- as.factor(param)
+#     }else{
+#       if(whichPos == 'all'){
+#         t = sample_value[,grep(pattern=paste0(param, "\\["),all_params),,drop = FALSE]
+#       }else{
+#         if(param == "Y" | param == 'Z' | param == "pi" | param == 'R' | param == 'C'){
+#           #index_name = unlist(lapply(whichPos, function(i) paste0(param,"[",i[1],", ",i[2],", ",i[3],"]")) )
+#           index_name = unlist(lapply(whichPos, function(i) paste0(param,"[",i[1],", ",i[2],"]")) )
+#           t = sample_value[, index_name, ]
+#         }else{
+#           t = sample_value[, paste0(param, "[",whichPos,"]"), ]
+#         }
+#       }
+#
+#       # create df
+#       t2 <- t
+#       for(i in 1:dim(t2)[1]){
+#         for(j in 1:dim(t2)[2]){
+#           for(k in 1:dim(t2)[3]){
+#             t2[i, j, k] = mean(t2[1:i, j, k])
+#           }
+#         }
+#       }
+#       df <- reshape::melt(t2)
+#       df <- data.frame(apply(df,2,as.character),
+#                        stringsAsFactors = FALSE)
+#       colnames(df) <- c('iter','param','chain','value')
+#       df$iter <- unlist(mclapply(df$iter,
+#                                  function(i){substr(x = i,start = 5,stop = nchar(i))},
+#                                  mc.cores = cores))
+#
+#     }
+#   }
+#
+#   # set attributes
+#   if(param %in% rownames(param_number)){
+#     if(param_number[param,]!=1){
+#
+#       if(param == "Y" | param == 'Z' | param == "pi" | param == 'C'){                   #---Y
+#         if(whichPos=='all'){
+#           level <- paste0(param, "[", 1:(length(table(df$param))/K) )
+#           level <- unlist(lapply(level, function(a) paste0(a, ", ", 1:K, "]")) )
+#           df$param <- factor(df$param, levels = level)
+#         }else{
+#           df$param <- factor(df$param)
+#         }
+#       }else if(param == 'R'){             #---R
+#         if(whichPos=='all'){
+#           level <- paste0(param, "[", 1:(length(table(df$param))/L) )
+#           level <- unlist(lapply(level, function(a) paste0(a, ", ", 1:L, "]")) )
+#           df$param <- factor(df$param, levels = level)
+#         }else{
+#           df$param <- factor(df$param)
+#         }
+#       }else{
+#         if(whichPos=='all'){
+#           df$param <- factor(df$param, levels = paste0(param, "[",1:length(table(df$param)),"]"))
+#         }else{
+#           df$param <- factor(df$param, levels = paste0(param, "[",whichPos,"]"))
+#         }
+#       }
+#       # end
+#     }
+#   }
+#   df$chain <- factor(df$chain, levels = paste0("chain",1:dim(sample_value)[3]))
+#
+#   return(df)
+# }
+
+#' GetGewDiag
 #'
-#'   # check param number
-#'   if(param %in% rownames(param_number) ){
+#' @description
+#' use this function with julia, obtain the number of convergences
+#' for each parameter under different iterations of different chains
 #'
-#'     if(param_number[param,]==1){
-#'
-#'       t = sample_value[,which(all_params==param),]
-#'       df = reshape::melt(t)
-#'       df = data.frame(apply(df,2,as.character),
-#'                       stringsAsFactors = FALSE)
-#'       colnames(df) <- c('iter','chain','value')
-#'       df$iter <- unlist(pbmclapply(df$iter,
-#'                                    function(i){substr(x = i,start = 5,stop = nchar(i))},
-#'                                    mc.cores = cores))
-#'       df$param <- as.factor(param)
-#'     }else{
-#'       if(whichPos == 'all'){
-#'         t = sample_value[,grep(pattern=paste0(param, "\\["),all_params),]
-#'       }else{
-#'         if(param == "Y" | param == "Z" | param == "pi" | param == "R" | param == "C"){
-#'           index_name = unlist(lapply(whichPos, function(i) paste0(param,"[",i[1],", ",i[2],"]")) )
-#'           t = sample_value[, index_name, ]
-#'         }else if(param == "xx"){
-#'           #index_name = unlist(lapply(whichPos, function(i) paste0(param,"[",i[1],", ",i[2],"]")) )
-#'           index_name = unlist(lapply(whichPos, function(i) paste0(param,"[",i[1],", ",i[2],", ",i[3],"]")) )
-#'           t = sample_value[, index_name, ]
-#'         }else{
-#'           t = sample_value[, paste0(param, "[",whichPos,"]"), ]
-#'         }
-#'       }
-#'
-#'       # create df
-#'       df <- reshape::melt(t)
-#'       df <- data.frame(apply(df,2,as.character),
-#'                        stringsAsFactors = FALSE)
-#'       colnames(df) <- c('iter','param','chain','value')
-#'       df$iter <- unlist(mclapply(df$iter,
-#'                                  function(i){substr(x = i,start = 5,stop = nchar(i))},
-#'                                  mc.cores = cores))
-#'
-#'     }
-#'   }
-#'
-#'   # set attributes
-#'   if(param %in% rownames(param_number)){
-#'     if(param_number[param,]!=1){
-#'
-#'       if(param == "Y" | param == 'Z' | param == "pi" | param == 'C'){                   #---Y
-#'         if(whichPos=='all'){
-#'           level <- paste0(param, "[", 1:(length(table(df$param))/K) )
-#'           level <- unlist(lapply(level, function(a) paste0(a, ", ", 1:K, "]")) )
-#'           df$param <- factor(df$param, levels = level)
-#'         }else{
-#'           df$param <- factor(df$param)
-#'         }
-#'       }else if(param == 'R'){             #---R
-#'         if(whichPos=='all'){
-#'           level <- paste0(param, "[", 1:(length(table(df$param))/L) )
-#'           level <- unlist(lapply(level, function(a) paste0(a, ", ", 1:L, "]")) )
-#'           df$param <- factor(df$param, levels = level)
-#'         }else{
-#'           df$param <- factor(df$param)
-#'         }
-#'       }else if(param == "xx"){            #---xx
-#'         if(whichPos=='all'){
-#'           level <- paste0(param, "[",1:(length(table(df$param))/2) )
-#'           level <- unlist(lapply(level, function(a) paste0(a, ", ", 1:length(grep(pattern="T\\[",all_params)), ", ")) )
-#'           level <- unlist(lapply(level, function(a) paste0(a, 1:2, "]")) )
-#'           df$param <- factor(df$param, levels = level)
-#'         }else{
-#'           df$param <- factor(df$param)
-#'         }
-#'       }else{
-#'         if(whichPos=='all'){
-#'           df$param <- factor(df$param, levels = paste0(param, "[",1:length(table(df$param)),"]"))
-#'         }else{
-#'           df$param <- factor(df$param, levels = paste0(param, "[",whichPos,"]"))
-#'         }
-#'       }
-#'
-#'     }
-#'   }
-#'   df$chain <- factor(df$chain, levels = paste0("chain",1:dim(sample_value)[3]))
-#'
-#'   return(df)
-#' }
-#'
-#' #' GetParamMeanIter
-#' #'
-#' #' @description
-#' #' Get the mean value of the parameters under the corresponding iteration
-#' #'
-#' #' @param mamba mamba object
-#' #' @param murp murp result
-#' #' @param param parameter name
-#' #' @param whichPos 'all' / c(1,2,3)
-#' #' @param cores threads
-#' #'
-#' #' @export
-#' GetParamMeanIter <- function(mamba = NULL,
-#'                              murp = NULL,
-#'                              param = NULL,
-#'                              whichPos = 'all',
-#'                              cores = 2
-#' ){
-#'
-#'   require(reshape)
-#'   require(stringr)
-#'   require(pbmcapply)
-#'   require(doParallel)
-#'
-#'   # if(is.null(dimnames(mamba_object$forcast_time@sample_value))){
-#'   #   dimnames(mamba_object$forcast_time@sample_value) <- mamba_object$forcast_time@dimnames
-#'   # }
-#'
-#'   K <- murp$Recommended_K
-#'   all_params <- mamba@dimnames[[2]]
-#'   sample_value <- mamba@sample_value
-#'   param_number <- as.data.frame.numeric(table(str_split_fixed(all_params,"\\[",2)[,1]))
-#'   L <- sqrt(param_number['R',])
-#'
-#'   dimnames(sample_value) <- list(paste0("iter", 1:dim(sample_value)[1]),
-#'                                  all_params,
-#'                                  paste0("chain", 1:dim(sample_value)[3]))
-#'
-#'   # check param number
-#'   if(param %in% rownames(param_number) ){
-#'
-#'     if(param_number[param,]==1){
-#'
-#'       t = sample_value[,which(all_params==param),]
-#'       t2 = t
-#'       for(i in 1:dim(t2)[1]){
-#'         for(j in 1:dim(t2)[2]){
-#'           t2[i, j] =  mean(t2[1:i, j])
-#'         }
-#'       }
-#'       df = reshape::melt(t2)
-#'
-#'       df = data.frame(apply(df,2,as.character),
-#'                       stringsAsFactors = FALSE)
-#'       colnames(df) <- c('iter','chain','value')
-#'       df$iter <- unlist(pbmclapply(df$iter,
-#'                                    function(i){substr(x = i,start = 5,stop = nchar(i))},
-#'                                    mc.cores = cores))
-#'       df$param <- as.factor(param)
-#'     }else{
-#'       if(whichPos == 'all'){
-#'         t = sample_value[,grep(pattern=paste0(param, "\\["),all_params),,drop = FALSE]
-#'       }else{
-#'         if(param == "Y" | param == 'Z' | param == "pi" | param == 'R' | param == 'C'){
-#'           #index_name = unlist(lapply(whichPos, function(i) paste0(param,"[",i[1],", ",i[2],", ",i[3],"]")) )
-#'           index_name = unlist(lapply(whichPos, function(i) paste0(param,"[",i[1],", ",i[2],"]")) )
-#'           t = sample_value[, index_name, ]
-#'         }else{
-#'           t = sample_value[, paste0(param, "[",whichPos,"]"), ]
-#'         }
-#'       }
-#'
-#'       # create df
-#'       t2 <- t
-#'       for(i in 1:dim(t2)[1]){
-#'         for(j in 1:dim(t2)[2]){
-#'           for(k in 1:dim(t2)[3]){
-#'             t2[i, j, k] = mean(t2[1:i, j, k])
-#'           }
-#'         }
-#'       }
-#'       df <- reshape::melt(t2)
-#'       df <- data.frame(apply(df,2,as.character),
-#'                        stringsAsFactors = FALSE)
-#'       colnames(df) <- c('iter','param','chain','value')
-#'       df$iter <- unlist(mclapply(df$iter,
-#'                                  function(i){substr(x = i,start = 5,stop = nchar(i))},
-#'                                  mc.cores = cores))
-#'
-#'     }
-#'   }
-#'
-#'   # set attributes
-#'   if(param %in% rownames(param_number)){
-#'     if(param_number[param,]!=1){
-#'
-#'       if(param == "Y" | param == 'Z' | param == "pi" | param == 'C'){                   #---Y
-#'         if(whichPos=='all'){
-#'           level <- paste0(param, "[", 1:(length(table(df$param))/K) )
-#'           level <- unlist(lapply(level, function(a) paste0(a, ", ", 1:K, "]")) )
-#'           df$param <- factor(df$param, levels = level)
-#'         }else{
-#'           df$param <- factor(df$param)
-#'         }
-#'       }else if(param == 'R'){             #---R
-#'         if(whichPos=='all'){
-#'           level <- paste0(param, "[", 1:(length(table(df$param))/L) )
-#'           level <- unlist(lapply(level, function(a) paste0(a, ", ", 1:L, "]")) )
-#'           df$param <- factor(df$param, levels = level)
-#'         }else{
-#'           df$param <- factor(df$param)
-#'         }
-#'       }else{
-#'         if(whichPos=='all'){
-#'           df$param <- factor(df$param, levels = paste0(param, "[",1:length(table(df$param)),"]"))
-#'         }else{
-#'           df$param <- factor(df$param, levels = paste0(param, "[",whichPos,"]"))
-#'         }
-#'       }
-#'       # end
-#'     }
-#'   }
-#'   df$chain <- factor(df$chain, levels = paste0("chain",1:dim(sample_value)[3]))
-#'
-#'   return(df)
-#' }
+#' @param mamba mamba result object
+#' @param gvalue gew_value
+#' @param cnames gew_colnames
+#' @param rnames gew_rownames
+#' @param chains chains
+#' @param diagnosticMethods "gelmandiag", "gewekediag",
+#' "heideldiag", "rafterydiag"
+#' @export
+# GetGewDiag <- function(mamba = NULL,
+#                        gvalue = NULL,
+#                        cnames = NULL,
+#                        rnames = NULL,
+#                        diagnosticMethods = NULL){
+#
+#   require(stringr)
+#
+#   chains <- mamba@chains
+#   diag_object <- mamba@diagnostic
+#
+#   if(length(diag_object) > 0){
+#     if(length(grep(pattern = diagnosticMethods, names(diag_object))) > 0 ){
+#       stop("You have already diagnosed in this way.")
+#     }
+#   }
+#
+#   diag <- lapply(1:dim(gvalue)[3], function(x){
+#     tmp = gvalue[,,x]
+#     rownames(tmp) = rnames
+#     colnames(tmp) = cnames
+#     tmp
+#   })
+#
+#   cs_number <- t(as.data.frame.numeric(table(str_split_fixed(rnames,"\\[",2)[,1])))
+#
+#   cs <- matrix(0, ncol = ncol(cs_number), nrow = length(chains) + 1)
+#   colnames(cs) <- colnames(cs_number)
+#   cs[1,] <- cs_number[1,]
+#   rownames(cs) <- c('pal_number', paste0('chain',chains))
+#
+#   for(i in chains){
+#     chain = paste0("chain",i)
+#     for (j in colnames(cs)){
+#       if(cs[1, j]==1){
+#         cs[chain, j] <- length(which(diag[[i]][which(rnames==j), 2] > 0.05))
+#       }else{
+#         cs[chain, j] <- length(which(diag[[i]][grep(j,rnames), 2] > 0.05))
+#       }
+#     }
+#     print("next")
+#   }
+#
+#   # set
+#   if(length(diag_object)==0){
+#     diag_object[[1]] = list(diag_frame = diag, converged_param_numbers = cs,diag_name = diagnosticMethods)
+#     names(diag_object)[1] =  diagnosticMethods
+#   }else{
+#     n = length(diag_object)
+#     diag_object[[n+1]] = list(diag_frame = diag, converged_param_numbers = cs,diag_name = diagnosticMethods)
+#     names(diag_object)[n+1] = diagnosticMethods
+#   }
+#
+#   mamba@diagnostic = diag_object
+#
+#   return(mamba)
+# }

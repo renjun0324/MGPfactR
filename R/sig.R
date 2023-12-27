@@ -1,7 +1,13 @@
 
 #' ComputeInteractionEffectGene
 #'
-#' @param object
+#' @description
+#' Use lm (linear model) to calculate gene differential expression between
+#' different branches within each trajectory,
+#' considering branch labels and pseudotime.
+#' @param object MGPfact object
+#' @param adjust_method correction method, a ‘character’ string.  Can be abbreviated.
+#' @param save_mod Logical value, whether save result in mgpfact object
 #'
 #' @export
 #'
@@ -14,12 +20,22 @@ ComputeInteractionEffectGene <- function(object,
   L = getParams(object, "trajectory_number")
   Q = getParams(object, "murp_pc_number")
 
+  ## 0. get dat
+  if("data_matrix_all_gene" %nin% names(object@assay)){
+    dat = object@MURP$Recommended_K_cl$centers
+  }else{
+    if("data_matrix" %in% names(object@MURP)) {
+      object = GetMURPGene(object)
+    }
+    dat = object@MURP$data_matrix
+  }
+  gene <- colnames(dat)
+
   ## 1. get meanvalue and track_sdf
   sdf = GetMURPInfo(object)
 
   ## 2. calculating
   cat(":: lm \n")
-  gene <- colnames(object@MURP$Recommended_K_cl$centers)
   base_c <- "C0_"
   if(base_c=="C0_"){ enu = 3; lev = 0:2 }
   if(base_c=="C_"){ enu = 2; lev = 1:2 }
@@ -36,7 +52,7 @@ ComputeInteractionEffectGene <- function(object,
       tb = sdf[1,paste0("Tb_",l)]
       df = data.frame(T = sdf$T,
                       C = factor(sdf[,c],levels = lev),
-                      g = object@MURP$Recommended_K_cl$centers[,g])
+                      g = dat[,g])
       tryCatch(
         {
           lm(g ~ C + T + C * T, data = df)
@@ -103,8 +119,12 @@ ComputeInteractionEffectGene <- function(object,
 
 #' ComputeInteractionEffectGene
 #'
-#' @param object
-#'
+#' @description
+#' Utilize ANOVA to calculate gene expression differences
+#' between different branches within each trajectory
+#' @param object MGPfact object
+#' @param adjust_method correction method, a ‘character’ string.  Can be abbreviated.
+#' @param save_mod Logical value, whether save result in mgpfact object
 #' @export
 #'
 ComputeAOVEffectGene <- function(object,
@@ -116,12 +136,22 @@ ComputeAOVEffectGene <- function(object,
   L = getParams(object, "trajectory_number")
   Q = getParams(object, "murp_pc_number")
 
+  ## 0. get dat
+  if("data_matrix_all_gene" %nin% names(object@assay)){
+    dat = object@MURP$Recommended_K_cl$centers
+  }else{
+    if("data_matrix" %in% names(object@MURP)) {
+      object = GetMURPGene(object)
+    }
+    dat = object@MURP$data_matrix
+  }
+  gene <- colnames(dat)
+
   ## 1. get meanvalue and track_sdf
   sdf = GetMURPInfo(object)
 
   ## 2. calculating
   cat(":: anova c \n")
-  gene <- colnames(object@MURP$Recommended_K_cl$centers)
   mod_all <- lapply(1:L, function(l){
 
     cat("\n")
@@ -139,7 +169,7 @@ ComputeAOVEffectGene <- function(object,
       tb = sdf[1,paste0("Tb_",l)]
       df = data.frame(T = factor(ifelse(sdf$T>=tb,2,1), levels = 1:2),
                       C = factor(sdf[,c],levels = lev),
-                      g = object@MURP$Recommended_K_cl$centers[,g])
+                      g = dat[,g])
       tryCatch(
         {
           aov(g ~ C, data = df)
@@ -203,10 +233,14 @@ ComputeAOVEffectGene <- function(object,
   return(object)
 }
 
-#' ComputeInteractionEffectGene
+#' ComputeAOV2EffectGene
 #'
-#' @param object
-#'
+#' @description
+#' Utilize ANOVA to calculate gene differential
+#' expression between branches after bifurcation within each trajectory.
+#' @param object MGPfact object
+#' @param adjust_method correction method, a ‘character’ string.  Can be abbreviated.
+#' @param save_mod Logical value, whether save result in mgpfact object
 #' @export
 #'
 ComputeAOV2EffectGene <- function(object,
@@ -218,12 +252,22 @@ ComputeAOV2EffectGene <- function(object,
   L = getParams(object, "trajectory_number")
   Q = getParams(object, "murp_pc_number")
 
+  ## 0. get data
+  if("data_matrix_all_gene" %nin% names(object@assay)){
+    dat = object@MURP$Recommended_K_cl$centers
+  }else{
+    if("data_matrix" %in% names(object@MURP)) {
+      object = GetMURPGene(object)
+    }
+    dat = object@MURP$data_matrix
+  }
+  gene <- colnames(dat)
+
   ## 1. get meanvalue and track_sdf
   sdf = GetMURPInfo(object)
 
   ## 2. calculating
   cat(":: anova c \n")
-  gene <- colnames(object@MURP$Recommended_K_cl$centers)
   mod_all <- lapply(1:L, function(l){
 
     cat("\n")
@@ -241,7 +285,7 @@ ComputeAOV2EffectGene <- function(object,
       tb = sdf[1,paste0("Tb_",l)]
       df = data.frame(T = factor(ifelse(sdf$T>=tb,2,1), levels = 1:2),
                       C = factor(sdf[,c],levels = lev),
-                      g = object@MURP$Recommended_K_cl$centers[,g])
+                      g = dat[,g])
       df = df[which(df$C!=0),] ## 只保留后C1，C2
       df$C = factor(df$C, levels = c(1,2))
       tryCatch(
@@ -308,8 +352,11 @@ ComputeAOV2EffectGene <- function(object,
 
 #' ComputeMeanDiff
 #'
-#' @param object
-#'
+#' @description
+#' Calculate the mean differences between branches for different genes.
+#' @param object MGPfact object
+#' @param method Significance testing method
+#' @param adjust_method correction method, a ‘character’ string.  Can be abbreviated.
 #' @export
 #'
 ComputeMeanDiff <- function(object,
@@ -319,9 +366,17 @@ ComputeMeanDiff <- function(object,
   P = getParams(object, "murp_number")
   L = getParams(object, "trajectory_number")
   Q = getParams(object, "murp_pc_number")
-  # expr_dat = object@assay[[assay]]
-  expr_dat = object@MURP$Recommended_K_cl$centers
-  genes = colnames(expr_dat)
+
+  ## 0. get dat
+  if("data_matrix_all_gene" %nin% names(object@assay)){
+    dat = object@MURP$Recommended_K_cl$centers
+  }else{
+    if("data_matrix" %in% names(object@MURP)) {
+      object = GetMURPGene(object)
+    }
+    dat = object@MURP$data_matrix
+  }
+  gene <- colnames(dat)
 
   ## 1. get meanvalue and track_sdf
   sdf = GetMURPInfo(object)
@@ -341,18 +396,21 @@ ComputeMeanDiff <- function(object,
 
     ## mean difference
     cat("////// mean difference\n")
-    tmp_list <- lapply(genes, function(g){
+    tmp_list <- lapply(gene, function(g){
       tb = sdf[1,paste0("Tb_",l)]
       df = data.frame(C = factor(sdf[,c],levels = lev),
-                      g = expr_dat[,g])
+                      g = dat[,g])
       df = df[which(df$C!=0),] ## 只保留后C1，C2
       df$C = factor(df$C, levels = c(1,2))
 
       ind1 = which(df$C==1)
       ind2 = which(df$C==2)
-      diff = mean(df$g[ind1]) - mean(df$g[ind2])
-      c(gene = g, diff = diff,
-        status = ifelse(diff>0, "Up in C1", ifelse(diff<0, "Up in C2", "Non")) )
+      # diff = mean(df$g[ind1]) - mean(df$g[ind2])
+      diff = mean(df$g[ind2]) - mean(df$g[ind1])
+      c(gene = g,
+        diff = diff,
+        # status = ifelse(diff>0, "Up in C1", ifelse(diff<0, "Up in C2", "Non")) )
+        status = ifelse(diff>0, "Up in C2", ifelse(diff<0, "Up in C1", "Non")) )
     })
 
     diff_df = do.call(rbind, tmp_list) %>% data.frame
@@ -361,11 +419,11 @@ ComputeMeanDiff <- function(object,
 
     ## add diff test
     cat("//////", method, "\n")
-    tmp_list <- lapply(genes, function(g){
+    tmp_list <- lapply(gene, function(g){
       # cat(g, "\n")
       tb = sdf[1,paste0("Tb_",l)]
       df = data.frame(C = factor(sdf[,c],levels = lev),
-                      g = expr_dat[,g])
+                      g = dat[,g])
       df = df[which(df$C!=0),] ## 只保留后C1，C2
       df$C = factor(df$C, levels = c(1,2))
       ind1 = which(df$C==1)
@@ -443,10 +501,13 @@ ComputeMeanDiff <- function(object,
   return(object)
 }
 
-#' ComputeMeanDiff
+#' ComputeCorGeneTraj
 #'
-#' @param object
-#'
+#' @description
+#' Calculate the correlation coefficient between gene expression and pseudotime
+#' @param object MGPfact object
+#' @param method method for calculating correlation coefficients
+#' @param adjust_method correction method, a ‘character’ string.  Can be abbreviated.
 #' @export
 #'
 ComputeCorGeneTraj <- function(object,
@@ -456,9 +517,17 @@ ComputeCorGeneTraj <- function(object,
   P = getParams(object, "murp_number")
   L = getParams(object, "trajectory_number")
   Q = getParams(object, "murp_pc_number")
-  # expr_dat = object@assay[[assay]]
-  expr_dat = ct@MURP$Recommended_K_cl$centers
-  genes = colnames(expr_dat)
+
+  ## 0. get dat
+  if("data_matrix_all_gene" %nin% names(object@assay)){
+    dat = object@MURP$Recommended_K_cl$centers
+  }else{
+    if("data_matrix" %in% names(object@MURP)) {
+      object = GetMURPGene(object)
+    }
+    dat = object@MURP$data_matrix
+  }
+  gene <- colnames(dat)
 
   ## 1. get meanvalue and track_sdf
   sdf = GetMURPInfo(object)
@@ -477,8 +546,8 @@ ComputeCorGeneTraj <- function(object,
 
     ## cor test
     cat("////// cor test\n")
-    tmp_list <- lapply(genes, function(g){
-      r = cor.test(expr_dat[,g], w, method = method)
+    tmp_list <- lapply(gene, function(g){
+      r = cor.test(dat[,g], w, method = method)
       c(gene = g, cor = r$estimate, pvalue = r$p.value)
     })
     cor_df = do.call(rbind, tmp_list) %>% data.frame
@@ -500,13 +569,16 @@ ComputeCorGeneTraj <- function(object,
 
 #' ComputeMeanDiff
 #'
-#' @param object
-#'
+#' @description
+#' Calculate the correlation coefficient between gene expression and trajectory scores
+#' @param object MGPfact object
+#' @param method method for calculating correlation coefficients
+#' @param adjust_method correction method, a ‘character’ string.  Can be abbreviated.
 #' @export
 #'
 ComputeCorGeneT <- function(object,
-                               method = "spearman",
-                               adjust_method = "bonferroni"){
+                            method = "spearman",
+                            adjust_method = "bonferroni"){
 
   sdf = GetMURPInfo(object)
 
@@ -517,10 +589,22 @@ ComputeCorGeneT <- function(object,
   colnames(gene_weight) = paste0("L",1:3)
   # gene_num = (nrow(gene_weight) * weight_ratio) %>% round
 
-  expr_mat = object@MURP$Recommended_K_cl$centers
+  ## 0. get data
+  if("data_matrix_all_gene" %nin% names(object@assay)){
+    dat = object@MURP$Recommended_K_cl$centers
+  }else{
+    if("data_matrix" %in% names(object@MURP)) {
+      object = GetMURPGene(object)
+    }
+    dat = object@MURP$data_matrix
+  }
+  gene <- colnames(dat)
+
+  ## 1. cor
+  dat = object@MURP$Recommended_K_cl$centers
   t = sdf$T
-  lapply(colnames(expr_mat), function(g){
-    r = cor.test(t, expr_mat[,g], method = "spearman")
+  lapply(colnames(dat), function(g){
+    r = cor.test(t, dat[,g], method = "spearman")
     c(gene = g, cor = r$estimate, pvalue = r$p.value)
   }) -> tmp_list
 
@@ -528,7 +612,7 @@ ComputeCorGeneT <- function(object,
   dimnames(cor_df) = list(cor_df$gene,c("gene","cor","pvalue"))
   cor_df[,2] = as.numeric(cor_df[,2])
 
-  ## p.adjust
+  ## 2. p.adjust
   cat("////// adjust pvalue\n")
   cor_df$p.adj = p.adjust(cor_df$pvalue, method = adjust_method)
   colnames(cor_df) = c("gene", paste0(method,"_cor"), paste0(method,"_pvalue"), paste0(method,"_",adjust_method))
@@ -542,7 +626,7 @@ ComputeCorGeneT <- function(object,
 #' @description
 #' compute significance genes with lm or aov
 #'
-#' @param cs celltrek-gene object
+#' @param cs MGPfact-gene object
 #' @param ct_method dge method
 #' @param sig_method statistics label
 #' @param sig_th filter threshold
@@ -631,9 +715,8 @@ ComputeSigGene <- function(cs,
 #' @description
 #' adjust pvalue using different method
 #'
-#' @param cs celltrek-gene object
+#' @param cs MGPfact-gene object
 #' @param ct_method dge method
-#' @param sig_method statistics label
 #' @param adjust_method filter threshold
 #'
 #' ct_method = "lm"
@@ -649,15 +732,16 @@ AdjustPvalue <- function(cs,
 
   # adjust
   for(i in 1:L){
+    cat(i, "\n")
     sig_df = obj$mod_all[[i]]$sig_df
-
-    # sig_df = obj$mod_all[[i]]$sig_df
+    if(is.null(sig_df)) next
     ind = grep("pvalue",colnames(sig_df))
     for(j in ind){
       sig_df[,j] = p.adjust(sig_df[,j], method = adjust_method)
     }
     sig_df_adjust = sig_df[,ind,drop=FALSE]
     colnames(sig_df_adjust) = gsub("pvalue",adjust_method,colnames(sig_df_adjust))
+    sig_df = sig_df[, grep(adjust_method, colnames(sig_df), invert = TRUE)]
     obj$mod_all[[i]]$sig_df = cbind(sig_df, sig_df_adjust)
   }
 
@@ -670,8 +754,8 @@ AdjustPvalue <- function(cs,
 #' @description
 #' get new sdata and cl according to differential gene
 #'
-#' @param ct celltrek object
-#' @param cs celltrek-gene object
+#' @param ct MGPfact object
+#' @param cs MGPfact-gene object
 #' @param ct_method dge method
 #' @param sig_label dge factor
 #' @param sig_method statistics label
@@ -699,7 +783,7 @@ ComputeSigData <- function(ct,
 
   ## get dge gene
   L = length(obj$mod_all)
-  cat("L", l, "-", ct_method, "-", sig_label, "-", sig_method, "-", sig_th, "\n")
+  cat(ct_method, "-", sig_label, "-", sig_method, "-", sig_th, "\n")
   ct_gene <- lapply(1:L, function(l){
     cat(l, "\n")
     GetSigGene(cs,
@@ -761,8 +845,10 @@ ComputeSigData <- function(ct,
 
 
 #' GetSigGene
-#'
-#' @param cs celltrek-gene object
+#' @description
+#' Filter genes identified as significant by different differential analysis methods
+#' @param cs MGPfact-gene object
+#' @param traj trajectory index
 #' @param ct_method dge method
 #' @param sig_label dge factor
 #' @param sig_method statistics label
@@ -803,7 +889,10 @@ GetSigGene <- function(cs,
 
 #' GetSigDF
 #'
-#' @param cs celltrek-gene object
+#' @description
+#' Obtain a data frame of significant genes identified by different
+#' differential analysis methods, including results for p-value and adjusted p-value.
+#' @param cs MGPfact-gene object
 #' @param ct_method dge method
 #' @param traj trajectory number
 #'
@@ -826,12 +915,12 @@ GetSigDF <- function(cs,
 }
 
 #' Save2CS
-#' save result to cs
-#'
-#' @param obj
-#' @param base
-#' @param name
-#' @param result
+#' @description
+#' save result to mgpfact-gene object
+#' @param obj MGPfact-gene object
+#' @param base storage location
+#' @param name name of storage location
+#' @param result Results to be stored
 #'
 #' @export
 #'
@@ -858,8 +947,10 @@ Save2CS <- function(obj,
 
 #' SaveSigSDF
 #'
-#' @param ct celltrek object
-#' @param cs celltrek-gene object
+#' @description
+#'
+#' @param ct MGPfact object
+#' @param cs MGPfact-gene object
 #' @param ct_method dge method
 #' @param sig_label dge factor
 #' @param sig_method statistics label
@@ -872,45 +963,46 @@ Save2CS <- function(obj,
 #'
 #' @export
 #'
-SaveSigSDF <- function(ct,
-                       cs,
-                       sdf,
-                       sig_label,
-                       ct_method,
-                       sig_method,
-                       sig_th){
-
-  obj = cs[[ct_method]]
-  if( ("sig_result" %nin% names(obj)) | (paste0(sig_method,"_",sig_th) %nin% names(obj$sig_result)) ){
-    cs = ComputeSigGene(cs, ct_method, sig_method, sig_th)
-  }
-  if( ("new_data" %nin% names(obj)) | (paste0(sig_method,"_",sig_th) %nin% names(obj$new_data)) ){
-    cs = ComputeSigData(ct, cs, sig_label, ct_method, sig_method, sig_th)
-  }
-
-  new_data_index = paste0(sig_label, "_",sig_method,"_",sig_th)
-  sdata = cs[[ct_method]]$new_data[[new_data_index]]$sdata
-  cl = cs[[ct_method]]$new_data[[new_data_index]]$cl
-  colnames(cl) = paste0("PC_",1:ncol(cl))
-  sdf[, grep("PC", colnames(sdf))] = NULL
-  sdf = cbind(sdf, cl)
-
-  save(sdf, file = "sdf.rda")
-  save(cl, file = paste0('cl_', nrow(cl) ,'cell.rda'))
-  save(sdata, file = "sdata.rda")
-
-  return(cs)
-}
+# SaveSigSDF <- function(ct,
+#                        cs,
+#                        sdf,
+#                        sig_label,
+#                        ct_method,
+#                        sig_method,
+#                        sig_th){
+#
+#   obj = cs[[ct_method]]
+#   if( ("sig_result" %nin% names(obj)) | (paste0(sig_method,"_",sig_th) %nin% names(obj$sig_result)) ){
+#     cs = ComputeSigGene(cs, ct_method, sig_method, sig_th)
+#   }
+#   if( ("new_data" %nin% names(obj)) | (paste0(sig_method,"_",sig_th) %nin% names(obj$new_data)) ){
+#     cs = ComputeSigData(ct, cs, sig_label, ct_method, sig_method, sig_th)
+#   }
+#
+#   new_data_index = paste0(sig_label, "_",sig_method,"_",sig_th)
+#   sdata = cs[[ct_method]]$new_data[[new_data_index]]$sdata
+#   cl = cs[[ct_method]]$new_data[[new_data_index]]$cl
+#   colnames(cl) = paste0("PC_",1:ncol(cl))
+#   sdf[, grep("PC", colnames(sdf))] = NULL
+#   sdf = cbind(sdf, cl)
+#
+#   save(sdf, file = "sdf.rda")
+#   save(cl, file = paste0('cl_', nrow(cl) ,'cell.rda'))
+#   save(sdata, file = "sdata.rda")
+#
+#   return(cs)
+# }
 
 #' WriteGene2TXT
 #'
-#' @param ct celltrek object
-#' @param cs celltrek-gene object
+#' @description
+#' Write genes with significant differences to a txt file
+#'
+#' @param cs MGPfact-gene object
 #' @param ct_method dge method
 #' @param sig_label dge factor
 #' @param sig_method statistics label
 #' @param sig_th filter threshold
-#'
 #' sig = TRUE
 #' ct_method = "lm"
 #' sig_method = "pvalue"
@@ -922,8 +1014,7 @@ WriteGene2TXT <- function(cs,
                           ct_method,
                           sig_method,
                           sig_label,
-                          sig_th,
-                          ENTREZID = FALSE){
+                          sig_th){
 
   base_n = paste0(ct_method,"_",sig_method,"_", sig_label,"_", sig_th)
   obj = cs[[ct_method]]
@@ -940,12 +1031,12 @@ WriteGene2TXT <- function(cs,
       write.table(gene,
                   file = paste0("4_differential_genes/",base_n,"_SYMBOL_L",l,".txt"),
                   row.names = FALSE, col.names = FALSE, quote = FALSE)
-      if(ENTREZID){
-        marker = bitr(gene, fromType = "SYMBOL", toType = c("ENSEMBL", "ENTREZID"), OrgDb = org.Hs.eg.db)
-        write.table(marker$ENTREZID,
-                    file = paste0("4_differential_genes/", base_n,"_ENTREZID_L",l,".txt"),
-                    row.names = FALSE, col.names = FALSE, quote = FALSE)
-      }
+      # if(ENTREZID){
+      #   marker = bitr(gene, fromType = "SYMBOL", toType = c("ENSEMBL", "ENTREZID"), OrgDb = org.Hs.eg.db)
+      #   write.table(marker$ENTREZID,
+      #               file = paste0("4_differential_genes/", base_n,"_ENTREZID_L",l,".txt"),
+      #               row.names = FALSE, col.names = FALSE, quote = FALSE)
+      # }
 
     },
     error = function(e){
@@ -954,6 +1045,7 @@ WriteGene2TXT <- function(cs,
   }
 }
 
+# ---------------
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #' ComputeWeightGene
 #'

@@ -1,15 +1,47 @@
-Package: celltrekr
-Title: celltrekr (One Line, Title Case)
+Package: MGPfactR
+Title: MGPfactR (One Line, Title Case)
 Version: 0.1.0
-Date: 2023-2-21
+Date: 2023-12-25
 Authors@R: person(family = "RenJun",
            role = c("aut", "cre"),
            email = "renjun0324@hotmail.com")
-Description: This package implements the MURP downsampling algorithm for scRNA-seq data.
+Description: using with MGPfact
 Depends:
-    R (>= 3.5.0)
-Imports: 
-    Seurat
+    R (>= 4.0.0),
+    ggplot2,
+    ggraph,
+    dplyr,
+    MURP,
+    JuliaCall
+Imports:
+    methods,
+    grDevices,
+    stats,
+    utils,
+    ggsci,
+    stringr,
+    purrr,
+    ComplexHeatmap,
+    reshape2,
+    parallel,
+    patchwork,
+    Rtsne,
+    umap,
+    cluster,
+    igraph,
+    graphlayouts,
+    tibble,
+    parallelDist,
+    Matrix,
+    invgamma,
+    optimParallel,
+    rotations,
+    mvtnorm,
+    ggridges,
+    corpcor,
+    MASS,
+    Rmisc,
+    ggpubr
 License: GPL-3
 Encoding: UTF-8
 LazyData: true

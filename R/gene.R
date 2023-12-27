@@ -8,6 +8,11 @@
 #' gaussian_process_regression
 #'
 #' @description
+#' Use Gaussian process regression to calculate the smooth expression of any gene/trajectory score along a trajectory.
+#' @param s covariance matrix
+#' @param P murp number
+#' @param gene_expr expression vector of any gene in the 'murp' dataset.
+#' @param n.samples The number of points included in the regression results
 #' @export
 gaussian_process_regression <- function(s, P,
                                         gene_expr,
@@ -29,19 +34,43 @@ gaussian_process_regression <- function(s, P,
   values <- matrix(rep(0, P_*n.samples), ncol=n.samples)
   for (n in 1:n.samples) {
     cat("sample: ", n, "\n")
-    if(!corpcor::is.positive.definite(cov.f.star)){
-      cov.f.star = corpcor::make.positive.definite(cov.f.star, 1e-6)
+    if(!is.positive.definite(cov.f.star)){
+      cov.f.star = make.positive.definite(cov.f.star, 1e-6)
     }
-    values[,n] <- MASS::mvrnorm(1, f.star.bar, cov.f.star)
+    values[,n] <- mvrnorm(1, f.star.bar, cov.f.star)
   }
   colnames(values) = paste0("sample_",1:n.samples)
   return(values)
 
 }
 
+#' GetMURPGene
+#'
+#' @description
+#' Map expression vectors of all genes onto a subset of MURP
+#' @param object MGPfact object
+#' @export
+GetMURPGene <- function(object){
+  if("data_matrix_all_gene" %nin% names(object@assay)){
+    object@MURP$data_matrix = object@MURP$Recommended_K_cl$center
+  }else{
+    dat = object@assay$data_matrix_all_gene
+    c = object@MURP$Recommended_K_cl$cluster
+    c = factor(c, levels = 1:length(unique(c)) )
+    tapply(1:nrow(dat), as.factor(c),
+           function(x, y) apply(dat[x,,drop=F],2,mean) ) -> tmp
+    tmp = do.call(rbind, tmp)
+    object@MURP$data_matrix = tmp
+  }
+  return(object)
+}
+
 #' GetTrajectoryCurve
 #'
 #' @description
+#' Smooth any trajectory score using Gaussian process regression
+#' @param object MGPfact object
+#' @param n.samples The number of points included in the regression results
 #' @export
 GetTrajectoryCurve <- function(object,
                                n.samples = 30){
@@ -75,6 +104,11 @@ GetTrajectoryCurve <- function(object,
 #' gaussian_process_regressionDF
 #'
 #' @description
+#' Use Gaussian process regression to calculate the smooth
+#' expression of any gene/trajectory score along a trajectory.
+#' @param object MGPfact object
+#' @param n.samples The number of points included in the regression results
+#' @param genes a character contain gene names
 #' @export
 GetGeneCurve <- function(object,
                          genes = NULL,
@@ -89,8 +123,10 @@ GetGeneCurve <- function(object,
   S_list_ = object@GPR$reg_cov$cov_l
   curve_gene_expr_list <- lapply(1:length(S_list_), function(l){
     tmp_list <- lapply(genes, function(g){
-      x = gaussian_process_regression(s = S_list_[[l]], P = P, n.samples = n.samples,
-                                      gene_expr = object@MURP$Recommended_K_cl$centers[,g])
+      x = gaussian_process_regression(s = S_list_[[l]],
+                                      P = P,
+                                      n.samples = n.samples,
+                                      gene_expr = object@MURP$data_matrix[,g])
       apply(x, 1, mean)
     })
     g_expr = do.call(rbind, tmp_list )
@@ -125,6 +161,8 @@ GetGeneCurve <- function(object,
 #' GetCurveSdf
 #'
 #' @description
+#' Integrate the smooth results from Gaussian process regression
+#' @param object MGPfact object
 #' @export
 GetCurveSdf <- function(object){
 
@@ -141,9 +179,9 @@ GetCurveSdf <- function(object){
   ssdf <- data.frame(T = s_$T,
                      C0,
                      t(s_$C),
-                     matrix(rep(s_$Tb, each=s_$P),nr=s_$P),
+                     matrix(rep(s_$Tb, each=s_$P),nrow=s_$P),
                      X = s_$X,
-                     matrix(rep(s_$lambda, each=s_$P),nr=s_$P),
+                     matrix(rep(s_$lambda, each=s_$P),nrow=s_$P),
                      mt = rep(s_$m_t, s_$P),
                      s2t = rep(s_$s2_t, s_$P),
                      s2x = rep(s_$s2_x, s_$P),
@@ -173,11 +211,11 @@ GetCurveSdf <- function(object){
 #' GeneExprMURP
 #'
 #' @description
-#'
-#' @param gene
-#' @param murp
-#' @param count
-#' @param methods
+#' Obtain the expression vector of a gene in MURP
+#' @param gene any gene
+#' @param murp murp result
+#' @param expr expression matrix
+#' @param methods mean/sum expression
 #' @export
 #'
 GeneExprMURP <- function(gene = NULL,
@@ -225,27 +263,35 @@ GeneExprMURP <- function(gene = NULL,
 #' GeneBar
 #'
 #' @description
-#'
-#' @param set_list
+#' Bar plot of gene expression in different branches.
+#' @param object MGPfact object
+#' @param gene any gene
+#' @param murp murp result
+#' @param group group name
+#' @param exprs expression matrix
+#' @param expr_method mean/sum expression
+#' @param barcolor color of bar
+#' @param errorbar logical value, whether to add errorbar
 #' @export
-GeneBar <- function(gene = NULL,
+GeneBar <- function(object,
+                    gene = NULL,
                     group = NULL,
-                    exprs = ct@assay$counts,
-                    murp = ct@MURP,
+                    exprs = NULL,
+                    murp = NULL,
                     expr_method = "mean",
                     barcolor = colorRampPalette(pal_rickandmorty()(12))(12),
                     errorbar = FALSE){
 
   expr = GeneExprMURP(gene = gene,
                       expr = exprs,
-                      murp = ct@MURP,
+                      murp = object@MURP,
                       methods = expr_method)
 
   cdf <- data.frame(group, expr)
-  gdf1 <- cdf %>% dplyr::select(expr, group) %>% group_by(group ) %>%
-    dplyr::summarise( mean(expr), sum(expr)) %>%  `colnames<-`(c("group", "mean", "sum")) %>% data.frame
-  gdf2 <- cdf %>% dplyr::select(expr, group) %>% group_by(group ) %>%
-    Rmisc::summarySE(measurevar = "expr", groupvars = "group") %>%  data.frame
+  gdf1 <- cdf %>% select("expr", "group") %>% group_by(group ) %>%
+    summarise( mean(expr), sum(expr)) %>%  `colnames<-`(c("group", "mean", "sum")) %>% data.frame
+  gdf2 <- cdf %>% select("expr", "group") %>% group_by(group ) %>%
+    summarySE(measurevar = "expr", groupvars = "group") %>%  data.frame
 
   gdf <- merge(gdf1, gdf2, by = "group")
   gdf[,"group"] <- factor(gdf[,"group"], levels = c(0,1,2))
@@ -270,7 +316,7 @@ GeneBar <- function(gene = NULL,
 
   if(errorbar){
     p = p +
-      geom_errorbar(aes(ymin = get(expr_method) - ci, ymax = get(expr_method) + ci),
+      geom_errorbar(aes(ymin = get(expr_method) - .data$ci, ymax = get(expr_method) + .data$ci),
                     width = .1, position = position_dodge(.5))
   }
 
@@ -280,8 +326,15 @@ GeneBar <- function(gene = NULL,
 #' GeneVln
 #'
 #' @description
-#'
-#' @param set_list
+#' violin plot of gene expression in different branches.
+#' @param expr expression matrix including several genes
+#' @param group group name
+#' @param title plot title
+#' @param ylab Y-axis title
+#' @param vlncolor color of violin
+#' @param errorbar logical value, whether to add errorbar
+#' @param max_y  Y-axis maximum value.
+#' @param pvalue logical value, whether to add pvalue label
 #' @export
 GeneVln <- function(expr = NULL,
                     group = NULL,
@@ -334,274 +387,25 @@ GeneVln <- function(expr = NULL,
 #
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-#' BeautArea
-#'
-#' @description
-#'
-#' @param df
-#' @param mdf
-#' @param g
-#' @param cut_tb
-#'
-BeautArea <- function(df, mdf, g, cut_tb = TRUE,
-                      cols = c("#374e55ff","#df8f44ff"),
-                      top_air = 3,
-                      y_title_hjust = 1.5,
-                      celltype_legend_ncol = 1,
-                      y_title_vjust = -5){
-
-  require(ggplotify)
-
-  df = df[which(df$variable==g),]
-  mdf = mdf[which(mdf$variable==g),]
-
-  #### cut_tb
-  if(cut_tb){
-    df = df[which(df$T>tb),]
-    mdf = mdf[which(mdf$T>tb),]
-  }
-
-  #### scale_y
-  # y_ma = max(abs(df$value)) %>% round(1)
-  y_ma = max(abs(df$value)) %>% ceiling
-  y_mi = -y_ma
-  mseq = seq(y_mi, y_ma, length = 5)
-
-  ####  scale_x
-  x_mi = min(df$T) %>% round(2)
-  x_ma = 1
-
-  ####  split
-  df1 <- df[which(df$C==1),]
-  df2 <- df[which(df$C==2),]
-  mdf1 <- mdf[which(mdf$C!=2),]; mdf1$celltype = as.factor(mdf1$celltype)
-  mdf2 <- mdf[which(mdf$C!=1),]; mdf2$celltype = as.factor(mdf2$celltype)
-  # celltype_col <- pal_jco("default")(10)[1:enum(mdf$celltype)]
-  # celltype_col <- pal_d3("category20")(20)[1:enum(mdf$celltype)]
-  # celltype_col <- rev(pal_d3("category20")(20))[1:enum(mdf$celltype)]
-  celltype_col <- pal_d3("category20")(20)[1:length(levels(mdf$celltype))]
-  names(celltype_col) <- levels(mdf$celltype)
-
-  ####  pmain_1
-  pmain_1 <- ggplot()+
-
-    # 1. plot
-    # geom_area(data = df1, size = .9, alpha = 0.7, position = "identity",
-    #           aes(x = T, y = value, fill = C)) +
-    geom_ribbon(data = df1, size = .9, alpha = 0.5, ymin = y_mi,
-                aes(x = T, ymax = value, fill = C)) +
-    geom_point(data = mdf1, aes(x = T, y = value, color = celltype), alpha = 0) +
-
-    # 2. scale
-    scale_fill_manual(values = cols, #c("#374e55ff","#df8f44ff"),  c("#ff940a", "#8cc68c")
-                      limits=levels(df1$C), drop=TRUE) +
-    scale_y_continuous(limits = c(y_mi,y_ma), breaks = mseq[2:5], labels = mseq[2:5],expand = c(0, 0)) +
-    scale_x_continuous(limits = c(x_mi,x_ma)) +
-
-    # 3. theme
-    guides(color = "none",
-           fill = guide_legend(override.aes=list(alpha = 0.5, size = 3),
-                               # nrow = length(levels(mdf$celltype)),
-                               nrow = 2)) +
-    labs(x = "", y = "", fill = paste0(g)) +
-    theme(plot.margin = unit(c(top_air, 0.5,0,0.5), "cm"),
-          plot.title = element_text(size = 15, hjust = 0),
-          panel.background = element_rect(fill='transparent', color="black"),
-          panel.border = element_rect(fill='transparent', color='black'),
-          panel.grid.minor=element_blank(),
-          panel.grid.major=element_blank(),
-          axis.title = element_blank(),
-          axis.ticks = element_blank(),
-          axis.text.x = element_blank(),
-          axis.text.y = element_text(vjust = 0.5, size = 16, colour = 'black'),
-          legend.position = "top",
-          legend.key = element_rect(fill='transparent', color="white"),
-          legend.text = element_text(vjust = 0.4, size = 16, colour = 'black'),
-          legend.title = element_text(vjust = 0.4, size = 16, colour = 'black') )
-
-  #### pmain_2
-  pmain_2 <- ggplot()+
-
-    # 1. plo2
-    # geom_area(data = df2, size = .9, alpha = 0.7,
-    #           aes(x = T, y = value, fill = C)) +
-    geom_ribbon(data = df2, size = .9, alpha = 0.5, ymin = -y_mi,
-                aes(x = T, ymax = value, fill = C)) +
-    geom_point(data = mdf2, aes(x = T, y = value, color = celltype), alpha = 0) +
-
-    # 2. scale
-    scale_color_manual(values = celltype_col, breaks = names(celltype_col), drop = FALSE) +
-    scale_fill_manual(values = cols,  limits=levels(df2$C), drop=TRUE) +
-    scale_y_reverse( limits = c(y_ma, y_mi), expand = c(0, 0),breaks = rev(mseq), labels = rev(mseq)) +
-    scale_x_continuous(limits = c(x_mi,x_ma)) +
-
-    # 3. theme
-    guides(fill = "none",
-           color = guide_legend("",override.aes=list(alpha = 1, size = 4,
-                                                     color = celltype_col),ncol = celltype_legend_ncol )) +
-    labs(x = "", y = "", color = "") +
-    theme(plot.margin = unit(c(-0.1,0.5,0,0.5), "cm"),
-          panel.background = element_rect(fill='transparent', color="black"),
-          panel.border = element_rect(fill='transparent', color='black'),
-          panel.grid.minor=element_blank(),
-          panel.grid.major=element_blank(),
-          axis.title = element_blank(),
-          axis.ticks = element_blank(),
-          axis.text.x = element_blank(),
-          axis.text.y = element_text(vjust = 0.5, size = 16, colour = 'black'),
-          legend.position = "bottom",
-          legend.key = element_rect(fill='transparent', color="white"),
-          legend.text = element_text(vjust = 0.4, size = 16, colour = 'black'),
-          legend.title = element_text(vjust = 0.4, size = 16, colour = 'black'))
-
-  ## xdens
-  xdens_1 <- axis_canvas(pmain_1, axis = "x") +
-    geom_density(data = mdf1, aes(x = T, y = ..scaled.., fill = celltype),
-                 alpha = 0.7, size = 0.1, adjust = 1.5) +
-    scale_x_continuous(limits = c(x_mi,x_ma)) +
-    scale_fill_manual(values = celltype_col,drop=F)
-  # scale_fill_d3("category20c")
-  xdens_2 <- axis_canvas(pmain_2, axis = "x") +
-    geom_density(data = mdf2, aes(x = T, y = ..scaled.., fill = celltype),
-                 alpha = 0.7, size = 0.1, adjust = 1.5) +
-    scale_y_reverse(expand = c(0, 0) ) +
-    scale_x_continuous(limits = c(x_mi,x_ma)) +
-    scale_fill_manual(values = celltype_col,drop=F)
-  # scale_fill_d3("category20")
-
-  p1 <- insert_xaxis_grob(pmain_1, xdens_1,
-                          grid::unit(.3, "null"), position = "top") %>% as.ggplot
-  p2 <- insert_xaxis_grob(pmain_2, xdens_2,
-                          grid::unit(.3, "null"), position = "bottom") %>% as.ggplot
-
-  p <- p1/p2 + labs(y = "Scaled Expression")
-  p$theme$axis.title = NULL
-  p$theme$axis.title.x = element_blank()
-  p$theme$axis.title.y.left = element_text(vjust = y_title_vjust,hjust = y_title_hjust, angle = 90, size = 16, colour = 'black')
-
-  return(p)
-}
-
 #' BeautAreaMulti
 #'
 #' @description
-#'
-#' @param df
-#' @param mdf
-#' @param g
-#' @param cut_tb
-#' @export
-BeautAreaMulti <- function(df, mdf, cut_tb = TRUE,
-                           right_space = 2){
-
-  # df = df[which(df$variable==g),]
-  # mdf = mdf[which(mdf$variable==g),]
-
-  if(cut_tb){
-    df = df[which(df$T>tb),]
-    mdf = mdf[which(mdf$T>tb),]
-  }
-
-  #### split df
-  mdf1 <- mdf[which(mdf$C!=2),]; mdf1$celltype = as.factor(mdf1$celltype); mdf1$C = 1
-  mdf2 <- mdf[which(mdf$C!=1),]; mdf2$celltype = as.factor(mdf2$celltype); mdf2$C = 2
-  celltype_col <- pal_jco("default")(10)[1:enum(mdf$celltype)]
-
-  #### scale_y
-  # y_ma = max(abs(df$value)) %>% round(1)
-  y_ma = max(abs(df$value)) %>% ceiling
-  y_mi = -y_ma
-  mseq = seq(y_mi, y_ma, length = 5)
-
-  #### scale_x
-  x_mi = min(df$T) %>% round(2)
-  x_ma = 1
-
-  #### plot
-  pmain_1 <- ggplot() +
-    geom_ribbon(data = df, size = .9, alpha = 0.7, ymin = y_mi,
-                aes(x = T, ymax = value)) +
-    scale_y_continuous(limits = c(y_mi, y_ma),position = "right") +
-    scale_x_continuous(limits = c(x_mi, 1),expand = c(0.02, 0)) +
-    facet_grid(variable ~ C, labeller = labeller(.cols = c("1" = "C = 1", "2" = "C = 2"))) +
-    theme(plot.title = element_text(size = 15, hjust = 0),
-          plot.margin = unit(c(0,right_space,0,0.2), "cm"),
-          strip.text.x = element_text(size = 12, color='black'),
-          strip.text.y.right = element_text(size = unit(10,"pt"), color='black', angle = 0, hjust = 0),
-          # margin = margin(r = main_l,l = 5)),
-          strip.background.y = element_blank(),
-          # strip.background.x = element_rect(fill='transparent', color='black'),
-          panel.background = element_rect(fill='transparent', color="black"),
-          panel.border = element_rect(fill='transparent', color='black'),
-          panel.grid.minor=element_blank(),
-          panel.grid.major=element_blank(),
-          axis.title = element_blank(),
-          axis.ticks = element_blank(),
-          axis.text = element_blank(),
-          legend.position = "none",
-          legend.key = element_rect(fill='transparent', color="white"),
-          legend.text = element_text(vjust = 0.4, size = 13, colour = 'black'),
-          legend.title = element_text(vjust = 0.4, size = 13, colour = 'black') )
-
-  xdens_1 <- ggplot() +
-    geom_density_ridges2(data = rbind(mdf1,mdf2),
-                         aes(x = T, y  = celltype, fill = celltype, height = ..density..),
-                         stat = "density", panel_scaling = FALSE, adjust = 1.5,
-                         # rel_min_height = 0.05,
-                         alpha = 0.7,  size = 0.2) +
-    facet_grid(~C) +
-    labs(y="", fill = "") +
-    guides(fill = "none") +
-    scale_x_continuous(limits = c(x_mi,1), expand = c(0.03, 0)) +
-    scale_y_discrete(position = "right") +
-    # scale_y_discrete(position = "right", labels=function(x) stringr::str_wrap(x, width=10)) +
-    scale_fill_jco() +
-    theme(plot.margin = unit(c(0.5,0,0,0.2), "cm"),
-          plot.title = element_text(size = 15, hjust = 0),
-          strip.background = element_blank(),
-          strip.text = element_blank(),
-          panel.background = element_blank(),
-          panel.border = element_blank(),
-          panel.grid.minor=element_blank(),
-          panel.grid.major=element_blank(),
-          axis.title = element_blank(),
-          axis.ticks = element_blank(),
-          axis.text.x = element_blank(),
-          axis.text.y.right = element_text(size = 10, color='black', angle = 0, hjust = 0,
-                                           margin = margin(r = 15, l = unit(5,"pt"))))
-
-  empty <- ggplot() +
-    theme(panel.background=element_blank(),
-          axis.title.x=element_blank(),
-          axis.title.y=element_blank(),
-          axis.text.x=element_blank(),
-          axis.text.y=element_blank(),
-          axis.ticks=element_blank())
-
-  main_h = enum(df$variable)*0.5
-  p <- grid.arrange(xdens_1, empty, pmain_1,
-                    ncol=2, nrow=2,
-                    widths=c(4,0), heights=c(2, main_h)) %>% as.ggplot
-
-  return(p)
-}
-
-#' BeautAreaMulti
-#'
-#' @description
-#'
-#' @param df
-#' @param mdf
-#' @param g
-#' @param cut_tb
+#' Display the expression density variation of any one gene across the time domain,
+#' combined with the density variation of cell types
+#' @param df Data frame containing all genes and trajectory information,
+#' transformed into a long matrix with separate columns for pseudotime and branch label.
+#' @param mdf dataframe for any one gene on any one trajectory,
+#' including T, branch label, celltype, gene expression
+#' @param g any gene name
+#' @param cut_tb logical value, Whether to remove the section before the bifurcation
+#' @param cols color of gene expression density in different branches
+#' @param y_title_vjust Distance of y-axis labels from the panel.
+#' @param max_str Maximum width for cell type strings
 #' @export
 BeautAreaDrq <- function(df, mdf, g, cut_tb = FALSE,
                          cols = c("#374e55ff","#df8f44ff"),
                          y_title_vjust = -55,
                          max_str = 50){
-
-  require(ggplot2)
-  require(ggridges)
 
   # g = gsub("-","\\.",g)
   df = df[which(df$variable==g),]
@@ -630,7 +434,7 @@ BeautAreaDrq <- function(df, mdf, g, cut_tb = FALSE,
 
     # 1. plot
     geom_ribbon(data = df, size = 2, alpha = 0.7, ymin = y_mi,
-                aes(x = T, ymax = value, fill = C)) +
+                aes(x = .data$T, ymax = .data$value, fill = .data$C)) +
 
     # 2. scale
     scale_fill_manual(values = cols, limits=levels(df$C), drop=TRUE) +
@@ -670,7 +474,7 @@ BeautAreaDrq <- function(df, mdf, g, cut_tb = FALSE,
   ####  xdens
   xdens_1 <- ggplot() +
     geom_density_ridges(data = mdf,
-                        aes(x = T, y  = celltype, fill = C, height = ..density..),
+                        aes(x = .data$T, y  = .data$celltype, fill = .data$C, height = .data$..density..),
                         # stat = "density",
                         panel_scaling = FALSE, adjust = 2,
                         alpha = 0.7,  size = 0.01) +
@@ -678,7 +482,8 @@ BeautAreaDrq <- function(df, mdf, g, cut_tb = FALSE,
     guides(fill = "none") +
     scale_x_continuous(limits = c(x_mi,1), expand = c(0,0)) +
     scale_y_discrete(expand = c(0.05, 0), position = "left",
-                     labels=function(x) stringr::str_wrap(x, width=max_str)) +
+                     labels=ggplot2:::parse_safe) +
+                     # labels=function(x) stringr::str_wrap(x, width=max_str)) +
     scale_fill_manual(values = cols,
                       limits=levels(mdf$C), drop=TRUE) +
     theme(plot.margin = unit(c(0.5,0,0,0.2), "cm"),
@@ -699,7 +504,7 @@ BeautAreaDrq <- function(df, mdf, g, cut_tb = FALSE,
   p <- xdens_1 / pmain_1 + plot_layout(heights = c(.3, .4))
   return(p)
 }
-
+# -------------
 #' #' GeneCurveHeatmap
 #' #'
 #' #' @description
@@ -903,3 +708,253 @@ BeautAreaDrq <- function(df, mdf, g, cut_tb = FALSE,
 #'   return(ph)
 #'
 #' }
+#' BeautAreaMulti
+#'
+#' @description
+#'
+#' @param df
+#' @param mdf
+#' @param g
+#' @param cut_tb
+#' @export
+# BeautAreaMulti <- function(df, mdf, cut_tb = TRUE,
+#                            right_space = 2){
+#
+#   # df = df[which(df$variable==g),]
+#   # mdf = mdf[which(mdf$variable==g),]
+#
+#   if(cut_tb){
+#     df = df[which(df$T>tb),]
+#     mdf = mdf[which(mdf$T>tb),]
+#   }
+#
+#   #### split df
+#   mdf1 <- mdf[which(mdf$C!=2),]; mdf1$celltype = as.factor(mdf1$celltype); mdf1$C = 1
+#   mdf2 <- mdf[which(mdf$C!=1),]; mdf2$celltype = as.factor(mdf2$celltype); mdf2$C = 2
+#   celltype_col <- pal_jco("default")(10)[1:enum(mdf$celltype)]
+#
+#   #### scale_y
+#   # y_ma = max(abs(df$value)) %>% round(1)
+#   y_ma = max(abs(df$value)) %>% ceiling
+#   y_mi = -y_ma
+#   mseq = seq(y_mi, y_ma, length = 5)
+#
+#   #### scale_x
+#   x_mi = min(df$T) %>% round(2)
+#   x_ma = 1
+#
+#   #### plot
+#   pmain_1 <- ggplot() +
+#     geom_ribbon(data = df, size = .9, alpha = 0.7, ymin = y_mi,
+#                 aes(x = T, ymax = value)) +
+#     scale_y_continuous(limits = c(y_mi, y_ma),position = "right") +
+#     scale_x_continuous(limits = c(x_mi, 1),expand = c(0.02, 0)) +
+#     facet_grid(variable ~ C, labeller = labeller(.cols = c("1" = "C = 1", "2" = "C = 2"))) +
+#     theme(plot.title = element_text(size = 15, hjust = 0),
+#           plot.margin = unit(c(0,right_space,0,0.2), "cm"),
+#           strip.text.x = element_text(size = 12, color='black'),
+#           strip.text.y.right = element_text(size = unit(10,"pt"), color='black', angle = 0, hjust = 0),
+#           # margin = margin(r = main_l,l = 5)),
+#           strip.background.y = element_blank(),
+#           # strip.background.x = element_rect(fill='transparent', color='black'),
+#           panel.background = element_rect(fill='transparent', color="black"),
+#           panel.border = element_rect(fill='transparent', color='black'),
+#           panel.grid.minor=element_blank(),
+#           panel.grid.major=element_blank(),
+#           axis.title = element_blank(),
+#           axis.ticks = element_blank(),
+#           axis.text = element_blank(),
+#           legend.position = "none",
+#           legend.key = element_rect(fill='transparent', color="white"),
+#           legend.text = element_text(vjust = 0.4, size = 13, colour = 'black'),
+#           legend.title = element_text(vjust = 0.4, size = 13, colour = 'black') )
+#
+#   xdens_1 <- ggplot() +
+#     geom_density_ridges2(data = rbind(mdf1,mdf2),
+#                          aes(x = T, y  = celltype, fill = celltype, height = ..density..),
+#                          stat = "density", panel_scaling = FALSE, adjust = 1.5,
+#                          # rel_min_height = 0.05,
+#                          alpha = 0.7,  size = 0.2) +
+#     facet_grid(~C) +
+#     labs(y="", fill = "") +
+#     guides(fill = "none") +
+#     scale_x_continuous(limits = c(x_mi,1), expand = c(0.03, 0)) +
+#     scale_y_discrete(position = "right") +
+#     # scale_y_discrete(position = "right", labels=function(x) stringr::str_wrap(x, width=10)) +
+#     scale_fill_jco() +
+#     theme(plot.margin = unit(c(0.5,0,0,0.2), "cm"),
+#           plot.title = element_text(size = 15, hjust = 0),
+#           strip.background = element_blank(),
+#           strip.text = element_blank(),
+#           panel.background = element_blank(),
+#           panel.border = element_blank(),
+#           panel.grid.minor=element_blank(),
+#           panel.grid.major=element_blank(),
+#           axis.title = element_blank(),
+#           axis.ticks = element_blank(),
+#           axis.text.x = element_blank(),
+#           axis.text.y.right = element_text(size = 10, color='black', angle = 0, hjust = 0,
+#                                            margin = margin(r = 15, l = unit(5,"pt"))))
+#
+#   empty <- ggplot() +
+#     theme(panel.background=element_blank(),
+#           axis.title.x=element_blank(),
+#           axis.title.y=element_blank(),
+#           axis.text.x=element_blank(),
+#           axis.text.y=element_blank(),
+#           axis.ticks=element_blank())
+#
+#   main_h = enum(df$variable)*0.5
+#   p <- grid.arrange(xdens_1, empty, pmain_1,
+#                     ncol=2, nrow=2,
+#                     widths=c(4,0), heights=c(2, main_h)) %>% as.ggplot
+#
+#   return(p)
+# }
+#' BeautArea
+#'
+#' @description
+#'
+#' @param df
+#' @param mdf
+#' @param g
+#' @param cut_tb
+#'
+# BeautArea <- function(df, mdf, g, cut_tb = TRUE,
+#                       cols = c("#374e55ff","#df8f44ff"),
+#                       top_air = 3,
+#                       y_title_hjust = 1.5,
+#                       celltype_legend_ncol = 1,
+#                       y_title_vjust = -5){
+#
+#   require(ggplotify)
+#
+#   df = df[which(df$variable==g),]
+#   mdf = mdf[which(mdf$variable==g),]
+#
+#   #### cut_tb
+#   if(cut_tb){
+#     df = df[which(df$T>tb),]
+#     mdf = mdf[which(mdf$T>tb),]
+#   }
+#
+#   #### scale_y
+#   # y_ma = max(abs(df$value)) %>% round(1)
+#   y_ma = max(abs(df$value)) %>% ceiling
+#   y_mi = -y_ma
+#   mseq = seq(y_mi, y_ma, length = 5)
+#
+#   ####  scale_x
+#   x_mi = min(df$T) %>% round(2)
+#   x_ma = 1
+#
+#   ####  split
+#   df1 <- df[which(df$C==1),]
+#   df2 <- df[which(df$C==2),]
+#   mdf1 <- mdf[which(mdf$C!=2),]; mdf1$celltype = as.factor(mdf1$celltype)
+#   mdf2 <- mdf[which(mdf$C!=1),]; mdf2$celltype = as.factor(mdf2$celltype)
+#   # celltype_col <- pal_jco("default")(10)[1:enum(mdf$celltype)]
+#   # celltype_col <- pal_d3("category20")(20)[1:enum(mdf$celltype)]
+#   # celltype_col <- rev(pal_d3("category20")(20))[1:enum(mdf$celltype)]
+#   celltype_col <- pal_d3("category20")(20)[1:length(levels(mdf$celltype))]
+#   names(celltype_col) <- levels(mdf$celltype)
+#
+#   ####  pmain_1
+#   pmain_1 <- ggplot()+
+#
+#     # 1. plot
+#     # geom_area(data = df1, size = .9, alpha = 0.7, position = "identity",
+#     #           aes(x = T, y = value, fill = C)) +
+#     geom_ribbon(data = df1, size = .9, alpha = 0.5, ymin = y_mi,
+#                 aes(x = T, ymax = value, fill = C)) +
+#     geom_point(data = mdf1, aes(x = T, y = value, color = celltype), alpha = 0) +
+#
+#     # 2. scale
+#     scale_fill_manual(values = cols, #c("#374e55ff","#df8f44ff"),  c("#ff940a", "#8cc68c")
+#                       limits=levels(df1$C), drop=TRUE) +
+#     scale_y_continuous(limits = c(y_mi,y_ma), breaks = mseq[2:5], labels = mseq[2:5],expand = c(0, 0)) +
+#     scale_x_continuous(limits = c(x_mi,x_ma)) +
+#
+#     # 3. theme
+#     guides(color = "none",
+#            fill = guide_legend(override.aes=list(alpha = 0.5, size = 3),
+#                                # nrow = length(levels(mdf$celltype)),
+#                                nrow = 2)) +
+#     labs(x = "", y = "", fill = paste0(g)) +
+#     theme(plot.margin = unit(c(top_air, 0.5,0,0.5), "cm"),
+#           plot.title = element_text(size = 15, hjust = 0),
+#           panel.background = element_rect(fill='transparent', color="black"),
+#           panel.border = element_rect(fill='transparent', color='black'),
+#           panel.grid.minor=element_blank(),
+#           panel.grid.major=element_blank(),
+#           axis.title = element_blank(),
+#           axis.ticks = element_blank(),
+#           axis.text.x = element_blank(),
+#           axis.text.y = element_text(vjust = 0.5, size = 16, colour = 'black'),
+#           legend.position = "top",
+#           legend.key = element_rect(fill='transparent', color="white"),
+#           legend.text = element_text(vjust = 0.4, size = 16, colour = 'black'),
+#           legend.title = element_text(vjust = 0.4, size = 16, colour = 'black') )
+#
+#   #### pmain_2
+#   pmain_2 <- ggplot()+
+#
+#     # 1. plo2
+#     # geom_area(data = df2, size = .9, alpha = 0.7,
+#     #           aes(x = T, y = value, fill = C)) +
+#     geom_ribbon(data = df2, size = .9, alpha = 0.5, ymin = -y_mi,
+#                 aes(x = T, ymax = value, fill = C)) +
+#     geom_point(data = mdf2, aes(x = T, y = value, color = celltype), alpha = 0) +
+#
+#     # 2. scale
+#     scale_color_manual(values = celltype_col, breaks = names(celltype_col), drop = FALSE) +
+#     scale_fill_manual(values = cols,  limits=levels(df2$C), drop=TRUE) +
+#     scale_y_reverse( limits = c(y_ma, y_mi), expand = c(0, 0),breaks = rev(mseq), labels = rev(mseq)) +
+#     scale_x_continuous(limits = c(x_mi,x_ma)) +
+#
+#     # 3. theme
+#     guides(fill = "none",
+#            color = guide_legend("",override.aes=list(alpha = 1, size = 4,
+#                                                      color = celltype_col),ncol = celltype_legend_ncol )) +
+#     labs(x = "", y = "", color = "") +
+#     theme(plot.margin = unit(c(-0.1,0.5,0,0.5), "cm"),
+#           panel.background = element_rect(fill='transparent', color="black"),
+#           panel.border = element_rect(fill='transparent', color='black'),
+#           panel.grid.minor=element_blank(),
+#           panel.grid.major=element_blank(),
+#           axis.title = element_blank(),
+#           axis.ticks = element_blank(),
+#           axis.text.x = element_blank(),
+#           axis.text.y = element_text(vjust = 0.5, size = 16, colour = 'black'),
+#           legend.position = "bottom",
+#           legend.key = element_rect(fill='transparent', color="white"),
+#           legend.text = element_text(vjust = 0.4, size = 16, colour = 'black'),
+#           legend.title = element_text(vjust = 0.4, size = 16, colour = 'black'))
+#
+#   ## xdens
+#   xdens_1 <- axis_canvas(pmain_1, axis = "x") +
+#     geom_density(data = mdf1, aes(x = T, y = ..scaled.., fill = celltype),
+#                  alpha = 0.7, size = 0.1, adjust = 1.5) +
+#     scale_x_continuous(limits = c(x_mi,x_ma)) +
+#     scale_fill_manual(values = celltype_col,drop=F)
+#   # scale_fill_d3("category20c")
+#   xdens_2 <- axis_canvas(pmain_2, axis = "x") +
+#     geom_density(data = mdf2, aes(x = T, y = ..scaled.., fill = celltype),
+#                  alpha = 0.7, size = 0.1, adjust = 1.5) +
+#     scale_y_reverse(expand = c(0, 0) ) +
+#     scale_x_continuous(limits = c(x_mi,x_ma)) +
+#     scale_fill_manual(values = celltype_col,drop=F)
+#   # scale_fill_d3("category20")
+#
+#   p1 <- insert_xaxis_grob(pmain_1, xdens_1,
+#                           grid::unit(.3, "null"), position = "top") %>% as.ggplot
+#   p2 <- insert_xaxis_grob(pmain_2, xdens_2,
+#                           grid::unit(.3, "null"), position = "bottom") %>% as.ggplot
+#
+#   p <- p1/p2 + labs(y = "Scaled Expression")
+#   p$theme$axis.title = NULL
+#   p$theme$axis.title.x = element_blank()
+#   p$theme$axis.title.y.left = element_text(vjust = y_title_vjust,hjust = y_title_hjust, angle = 90, size = 16, colour = 'black')
+#
+#   return(p)
+# }

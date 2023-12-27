@@ -1,22 +1,21 @@
 
 #'PCANestedGridPlot
 #'
-#' @Description:
+#' @description
 #' Partial zoom
 #'
-#' @param pca_result: pca result
-#' @param sd_cutoff: choose the right number of pc according sd
-#' @param max_pc: maximum number of pc
+#' @param pca_result pca result
+#' @param sd_cutoff choose the right number of pc according sd
+#' @param max_pc maximum number of pc
+#'
+#' @export
+#'
 PCANestedGridPlot <- function(pca_result = NULL,
                               sd_cutoff = 1,
                               max_pc = NULL){
 
-  require(reshape2)
-  require(ggplot2)
-
-  #pca <- celltrek_object@DimReduc$PCA$pca_result
+  #pca <- MGPfact_object@DimReduc$PCA$pca_result
   pca <- pca_result
-  sd_cutoff <- sd_cutoff
   npc <- length(which(pca$sdev >= sd_cutoff))
   npc <- ifelse(npc == 0, npc+1, npc)
   npc <- ifelse(npc == 1, npc+1, npc)
@@ -70,7 +69,7 @@ PCANestedGridPlot <- function(pca_result = NULL,
                              #axis.text.y = element_blank(),
                              axis.text.x = element_text(vjust=0.5, size = 8)   )
 
-  p1_1 <- ggplot(df, aes(x = index, y = Standard_Deviation)) +
+  p1_1 <- ggplot(df, aes(x = .data$index, y = .data$Standard_Deviation)) +
     geom_point(shape = 0, color = "#33681e", size = 2.5, alpha = 0.6) +
     geom_hline(aes(yintercept = sd_cutoff), colour = "#990000", linetype = "dashed") +
     ylim(c(0, max(df$Standard_Deviation))) +
@@ -80,7 +79,7 @@ PCANestedGridPlot <- function(pca_result = NULL,
          y = "Standard Deviation") +
     rj.ftheme
 
-  p2_1 <- ggplot(df, aes(x = index, y = Proportion_of_Variance)) +
+  p2_1 <- ggplot(df, aes(x = .data$index, y = .data$Proportion_of_Variance)) +
     geom_point(shape = 1, color = "#6c4c40", size = 2.5, alpha = 0.6) +
     #geom_hline(aes(yintercept = 0.8), colour = "#990000", linetype = "dashed") +
     ylim(c(0, max(df$Proportion_of_Variance))) +
@@ -90,7 +89,7 @@ PCANestedGridPlot <- function(pca_result = NULL,
          y = "Proportion of Variance") +
     rj.ftheme
 
-  p3_1 <- ggplot(df, aes(x = index, y = Cumulative_Proportion)) +
+  p3_1 <- ggplot(df, aes(x = .data$index, y = .data$Cumulative_Proportion)) +
     geom_point(shape = 2, color = "#00579a", size = 2.5, alpha = 0.6) +
     geom_hline(aes(yintercept = 0.8), colour = "#990000", linetype = "dashed") +
     ylim(c(0, max(df$Cumulative_Proportion))) +
@@ -102,19 +101,19 @@ PCANestedGridPlot <- function(pca_result = NULL,
     rj.ftheme
 
   #
-  p1_2 <- ggplot(dfs, aes(x = index, y = Standard_Deviation)) +
+  p1_2 <- ggplot(dfs, aes(x = .data$index, y = .data$Standard_Deviation)) +
     geom_point(shape = 3, color = "sienna1", size = 1.5, alpha = 0.7) +
     geom_hline(aes(yintercept = sd_cutoff), colour = "#990000", linetype = "dashed") +
     labs(title = paste0(rownames(dfs)[1]," - ",rownames(dfs)[nrow(dfs)]), x = "", y = "") +
     rj.ftheme.small
 
-  p2_2 <- ggplot(dfs, aes(x = index, y = Proportion_of_Variance)) +
+  p2_2 <- ggplot(dfs, aes(x = .data$index, y = .data$Proportion_of_Variance)) +
     geom_point(shape = 3, color = "sienna1", size = 1.5, alpha = 0.7) +
     #geom_hline(aes(yintercept = 1), colour = "#990000", linetype = "dashed") +
     labs(title = paste0(rownames(dfs)[1]," - ",rownames(dfs)[nrow(dfs)]), x = "", y = "") +
     rj.ftheme.small
 
-  p3_2 <- ggplot(df_cp, aes(x = index, y = Cumulative_Proportion)) +
+  p3_2 <- ggplot(df_cp, aes(x = .data$index, y = .data$Cumulative_Proportion)) +
     geom_point(shape = 3, color = "sienna1", size = 1.5, alpha = 0.7) +
     geom_hline(aes(yintercept = 0.8), colour = "#990000", linetype = "dashed") +
     labs(title = paste0(rownames(df_cp)[1]," - ",rownames(df_cp)[nrow(df_cp)]),
@@ -149,90 +148,16 @@ PCANestedGridPlot <- function(pca_result = NULL,
   return(p)
 }
 
-#' #' MURPNestedGridPlot
-#' #'
-#' #' @Description:
-#' #' Partial zoom
-#' #'
-#' #' Arguments:
-#' #' @param murp form MURP
-#' #'
-#' MURPNestedGridPlot <- function(murp = NULL){
-#'
-#'   require(ggplot2)
-#'   require(reshape2)
-#'   require(dplyr)
-#'
-#'   rj.ftheme <-   theme(panel.background = element_rect(fill='transparent', color='black'),
-#'                        panel.grid.major=element_blank(),
-#'                        panel.grid.minor=element_blank(),
-#'                        #panel.border = element_rect(fill='transparent', color='transparent'),
-#'                        plot.title = element_text(size = 12), # centers, hjust = 0.5
-#'                        plot.subtitle= element_text(size = 10),
-#'                        #plot.caption = element_text()，
-#'                        legend.key = element_rect( fill = "white"),
-#'                        #axis.title=element_text(size = 12),
-#'                        #axis.ticks=element_blank(),
-#'                        #axis.line = element_line(colour = 'black'),
-#'                        axis.ticks = element_blank(),
-#'                        #axis.text.y = element_blank(),
-#'                        axis.text.x = element_text(vjust=0.5, size = 8) )
-#'   rj.ftheme.small <-   theme(panel.background = element_rect(fill='transparent', color='black'),
-#'                              panel.grid.major=element_blank(),
-#'                              panel.grid.minor=element_blank(),
-#'                              #panel.border = element_rect(fill='transparent', color='transparent'),
-#'                              plot.title = element_text(size = 8), # centers, hjust = 0.5
-#'                              plot.subtitle= element_text(size = 10),
-#'                              #plot.caption = element_text()，
-#'                              legend.key = element_rect( fill = "white"),
-#'                              #axis.title=element_text(size = 12),
-#'                              #axis.ticks=element_blank(),
-#'                              #axis.line = element_line(colour = 'black'),
-#'                              axis.ticks = element_blank(),
-#'                              #axis.text.y = element_blank(),
-#'                              axis.text.x = element_text(vjust=0.5, size = 8)   )
-#'
-#'   bi <- data.frame(K = murp$k,
-#'                    BIC = murp$BIC)
-#'
-#'   bi_local <- bi[order(bi$K,decreasing = FALSE),][1:10,]
-#'   highlight_bi <- bi_local %>% dplyr::filter(BIC==min(bi_local$BIC))
-#'
-#'   p1 <- ggplot(bi, aes(x = K, y = BIC)) +
-#'     geom_point(color = '#2F4F4F', alpha = 0.6, size = 3) +
-#'     geom_vline(aes(xintercept = murp$Recommended_K), colour="#990000", linetype="dashed") +
-#'     labs(title="Likelihood Function Value Corresponding to each K", y = "pseudo-BIC", x = "Downsampling Number") +
-#'     theme(axis.text.y = element_text(hjust=0.5, angle = 90)) +
-#'     rj.ftheme
-#'
-#'   p2 <- ggplot(bi_local, aes(x = K, y = BIC)) +
-#'     geom_point(color = 'sienna1', alpha = 0.6, size = 1.8) +
-#'     geom_point(data = highlight_bi, aes(x = K, y = BIC), color = 'blue', alpha = 0.7) +
-#'     geom_vline(aes(xintercept = murp$Recommended_K), colour="#990000", linetype="dashed") +
-#'     labs(x='', y='') +
-#'     # scale_y_continuous(labels = scientific,
-#'     #                    limits = c(min(bi_local$loglike),
-#'     #                               max(bi_local$loglike)),
-#'     #                    breaks = seq(min(bi_local$loglike),
-#'     #                                 max(bi_local$loglike),
-#'     #                                 (max(bi_local$loglike)-min(bi_local$loglike)))) +
-#'     # theme(axis.text.y = element_text(hjust=0.5, angle = 90)) +
-#'     scale_y_continuous(breaks = NULL) +
-#'     rj.ftheme.small
-#'
-#'   g <- ggplotGrob(p2)
-#'   p3 <- p1 + annotation_custom(g, xmin = max(bi$K)*0.52, xmax = max(bi$K)*0.92,
-#'                                ymin = abs(max(bi$BIC))-( abs(max(bi$BIC))-abs(min(bi$BIC)) )/4*2.05,
-#'                                ymax = max(bi$BIC) )
-#'
-#'   return(p3)
-#'
-#' }
-
 #' PlotLabelSplit
 #'
-#' @Description:
+#' @description
 #' plot label in tSNE/UMAP/DM/PCA split
+#'
+#' @param object MGPfact object
+#' @param labels attributes in metdata
+#' @param width canvas width
+#'
+#' @export
 #'
 PlotLabelSplit <- function(object = NULL,
                            labels = NULL,
@@ -329,8 +254,14 @@ PlotLabelSplit <- function(object = NULL,
 
 #' PlotLabelMerge
 #'
-#' @Description:
+#' @description
 #' plot label in tSNE/UMAP/DM/PCA merge
+#'
+#' @param object MGPfact object
+#' @param labels attributes in metdata
+#' @param width canvas width
+#'
+#' @export
 #'
 PlotLabelMerge <- function(object = NULL,
                            labels = NULL,

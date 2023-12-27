@@ -1,12 +1,13 @@
 
 #' split_tb
 #'
-#' cut T (pseudotime) according to tb (bifurcation time)
+#' @description cut T (pseudotime) according to tb (bifurcation time)
 #'
 #' @param t pseudotime of murps
 #' @param tb bifurcation time of different trajectory
 #'
 #' @return a matrix with Gene Number * Cell Number
+#' @noRd
 #'
 split_tb <- function(t, tb){
   pos = lapply(1:(length(tb)+1), function(i){
@@ -24,32 +25,29 @@ split_tb <- function(t, tb){
 
 #' split_binary_tree
 #'
+#' @description
 #' 对拆分之后的前后分组再根据分叉情况分组
-#'
-#' @param df
+#' @param df result of 'split_tb'
 #' @param sep trajectory name
 #'
 #' @return list
-#'
+#' @noRd
 split_binary_tree <- function(df, sep = "L1"){
-
-  require(dplyr)
-  require(tibble)
 
   final_result <- lapply(1:length(df), function(i){
     print(i)
     if(i == 1){
       x = df[[1]] %>%
         rownames_to_column("c_names") %>%
-        dplyr::select(c_names, T) %>%
-        dplyr::group_split()
+        select("c_names", T) %>%
+        group_split()
       names(x) = "g1"
     }else{
       c = sep
       x = df[[i]] %>% rownames_to_column("c_names") %>%
-        dplyr::select(c_names, T, c) %>%
-        dplyr::group_by(across(all_of(c)) ) %>%
-        dplyr::group_split()
+        select("c_names", T, c) %>%
+        group_by(across(all_of(c)) ) %>%
+        group_split()
       tmp = do.call(rbind,lapply(x, function(y)y[1,3:ncol(y)]))
       if(!is.null(tmp)){
         names(x) = apply(tmp,1,function(x)paste0("g",i,"_",paste0(x,collapse = "_")))
@@ -63,19 +61,13 @@ split_binary_tree <- function(df, sep = "L1"){
 
 #' split_tb_tree
 #'
-#' 根据Tb进行分段之后，对每一个分段再进行不同分支的分组
+#' @description  根据Tb进行分段之后，对每一个分段再进行不同分支的分组
 #' 每一个分段的分组依据是当前tb以及之前tb的L的排列组合
-#'
-#' @param df_list
-#'
+#' @param df_list result of 'split_binary_tree'
 #' @return list
-#'
-#' @export
+#' @noRd
 #'
 split_tb_tree <- function(df_list){
-
-  require(dplyr)
-  require(tibble)
 
   tree <- lapply(1:length(df_list), function(i){
     print(i)
@@ -86,16 +78,16 @@ split_tb_tree <- function(df_list){
     }else if(i == 1){
       x = df_list[[1]] %>%
         rownames_to_column("c_names") %>%
-        dplyr::select(c_names, T) %>%
-        dplyr::group_split()
+        select("c_names", T) %>%
+        group_split()
       names(x) = "g1"
     }else{
       # c = paste0("L",1:(i-1))
       c = tail(colnames(df), ncol(df)-1)
       x = df_list[[i]] %>% rownames_to_column("c_names") %>%
-        dplyr::select(c_names, T, c) %>%
-        dplyr::group_by(dplyr::across(all_of(c)) ) %>%
-        dplyr::group_split()
+        select("c_names", T, c) %>%
+        group_by(across(all_of(c)) ) %>%
+        group_split()
       tmp = do.call(rbind,lapply(x, function(y)y[1,3:ncol(y)]))
       names(x) = apply(tmp,1,function(x) paste0("g",i,"_",paste0(x,collapse = "_")))
     }
@@ -110,25 +102,19 @@ split_tb_tree <- function(df_list){
 #'
 #' @description
 #' adjacency matrix of binary tree
-#'
-#' @param tb_group_list
+#' @param tb_group_list result of 'split_tb_tree'
 #' @param P node number
-#' @param point_names
+#' @param point_names murp names
 #'
 #' @return matrix
 #'
 #' @export
-#'
+#' @noRd
 adj_tb_tree <- function(tb_group_list, P, point_names = NULL){
-
-  require(stringr)
-  require(tibble)
-  require(dplyr)
-
   Group = tb_group_list
 
   # construct adj matrix
-  adj_matrix <- matrix(0, nr = P, nc = P)
+  adj_matrix <- matrix(0, nrow =  P, ncol =  P)
   if(is.null(point_names)){
     rownames(adj_matrix) <- paste0("c",1:P)
     colnames(adj_matrix) <- paste0("c",1:P)
@@ -210,7 +196,7 @@ adj_tb_tree <- function(tb_group_list, P, point_names = NULL){
 
     }else{
 
-      G_n = stringr::str_split_fixed(names(G),"_",2)
+      G_n = str_split_fixed(names(G),"_",2)
       G_n[,2] = paste0("_", G_n[,2])
 
       for(n in G_n[,2]){
@@ -262,8 +248,8 @@ adj_tb_tree <- function(tb_group_list, P, point_names = NULL){
 #' Get the deconstructed multiple trajectories,
 #' and display them through a single-fork binary tree
 #'
-#' @param object celltrek object
-#' @param pse_sdf the data frame obtained by the function GetPseSdf
+#' @param object MGPfact object
+#' @param save Logical value, whether save the result in object
 #'
 #' @export
 #'
@@ -325,7 +311,6 @@ GetBinTree <- function(object,
   rownames(centers) <- paste0("T[",1:nrow(centers),"]")
   centers <- centers[rownames(bin_f),]
   bintree_all <- lapply(1:L, function(i){
-
     tree <- binary_tree_list[[i]]
     layout <- layout_list[[i]]
     edge <- as.data.frame(get.edgelist(tree), stringsAsFactors = FALSE)
@@ -353,9 +338,8 @@ GetBinTree <- function(object,
 #' @description
 #' Get a multi-forked binary-tree by merging different trajectories
 #'
-#' @param object celltrek object
-#' @param pse_sdf the data frame obtained by the function GetPseSdf
-#' @param save Logical value, whether to save the result
+#' @param object MGPfact object
+#' @param save Logical value, whether save the result in object
 #'
 #' @export
 #'
@@ -389,7 +373,7 @@ GetTbTreeDrq <- function(object,
   names(Tb) <- colnames(sdf)[(2+L*2):(1+3*L)]
 
   ### 1. make a null matrix
-  adj = matrix(0,P,P)
+  adj = matrix(0, P, P)
   dimnames(adj) = list(rownames(sdf), rownames(sdf))
 
   ## 2. 寻找跟节点在哪个TB处
@@ -409,7 +393,7 @@ GetTbTreeDrq <- function(object,
 
   index = which(Tb > min(tb_f$T)) # 所有Tb都要保留
   if(length(index)==0){ # 没有tb > min(T), 一条直线
-    adj <- matrix(0, nr = P, nc = P)
+    adj <- matrix(0, nrow =  P, ncol =  P)
     rownames(adj) <- paste0("T[",1:P,"]")
     colnames(adj) <- paste0("T[",1:P,"]")
     for(i in 1:(nrow(tb_f)-1) ){
@@ -559,7 +543,7 @@ GetTbTreeDrq <- function(object,
   ggraph(g, layout = layout) +
     geom_edge_diagonal(alpha = 0.7, width = 0.5, check_overlap = FALSE) +
     geom_node_point(color = "blue",size = 6, alpha = 0.6) +
-    geom_node_text(aes(label = name), size = 4) +
+    geom_node_text(aes(label = .data$name), size = 4) +
     coord_flip() +
     scale_y_reverse() +
     labs(title = paste0("L",i), color = "Bif") +
@@ -627,8 +611,8 @@ GetTbTreeDrq <- function(object,
 #' @description
 #' get tbtree result of murp
 #'
-#' @param object celltrek object
-#' @param pse_sdf the data frame obtained by the function GetPseSdf
+#' @param object MGPfact object
+#' @param save Logical value, whether save tbtree result in mgpfact
 #'
 #' @export
 #'
@@ -737,10 +721,9 @@ GetTbTree <- function(object,
 #' @description
 #' add all point in tbtree
 #'
-#' @param object celltrek object
-#' @param tbtree tbtree result obtained by the function GetTbTree
-#' @param pse_sdf the data frame obtained by the function GetPseSdf
+#' @param object MGPfact object
 #' @param labels some attribute about cells
+#' @param save Logical value, whether save tbtree result in mgpfact
 #'
 #' @export
 #'
@@ -788,7 +771,7 @@ GetTbTreeAllpoint <- function(object,
   cores = 3
   dist_list <- lapply(1:P, function(i){
     exp = sdata_cluster_centers[[i]]
-    dist_m = parallelDist::parDist(x = exp, method = "euclidean", diag = TRUE, upper = TRUE, threads = cores-2)
+    dist_m = parDist(x = exp, method = "euclidean", diag = TRUE, upper = TRUE, threads = cores-2)
     dist_m
   })
 
@@ -817,7 +800,7 @@ GetTbTreeAllpoint <- function(object,
   })
 
   ### 6. 得到所有点（包括中心点）的邻接矩阵
-  adj_final <- as.matrix(do.call(Matrix::bdiag, adj_matrix_list))
+  adj_final <- as.matrix(do.call(bdiag, adj_matrix_list))
   rownames(adj_final) <- unlist(lapply(adj_matrix_list, rownames))
   colnames(adj_final) <- rownames(adj_final)
 
@@ -864,8 +847,8 @@ GetTbTreeAllpoint <- function(object,
 
     df2_list <- lapply(labels, function(lab){
       cat(lab, "\n")
-      tmp <- table(ct@MetaData[,c("murp_cluster",lab)]) %>% as.data.frame
-      df <- reshape2::dcast(tmp, murp_cluster~get(lab))
+      tmp <- table(object@MetaData[,c("murp_cluster",lab)]) %>% as.data.frame
+      df <- dcast(tmp, murp_cluster~get(lab))
       df <- apply(df, 2, as.numeric)
       rownames(df) <- df[,"murp_cluster"]
       df <- df[,-1,drop=FALSE]
@@ -880,7 +863,7 @@ GetTbTreeAllpoint <- function(object,
       rownames(df) <- paste0("T[",rownames(df),"]")
       df <- df[rownames(tb_f),,drop=FALSE]
 
-      tmp <- matrix(0, nr = nrow(object@assay$data_matrix), nc = ncol(df))
+      tmp <- matrix(0, nrow =  nrow(object@assay$data_matrix), ncol =  ncol(df))
       rownames(tmp) <- rownames(murp$rawdata)
       df2 <- rbind(df, tmp)
     })
@@ -935,8 +918,10 @@ GetTbTreeAllpoint <- function(object,
 }
 
 #' GetTreeResult
-#'
-#' @param object
+#' @description
+#' extract bifurcation result
+#' @param object MGPfact object
+#' @export
 #'
 GetBinTreeResult <- function(object){
   r = object@Tree[["bintree"]]
@@ -944,8 +929,10 @@ GetBinTreeResult <- function(object){
 }
 
 #' GetTbTreeResult
-#'
-#' @param object
+#' @description
+#' extract consensus tree result
+#' @param object MGPfact object
+#' @export
 #'
 GetTbTreeResult <- function(object){
   r = object@Tree[["tbtree"]]
@@ -953,8 +940,10 @@ GetTbTreeResult <- function(object){
 }
 
 #' GetTbTreeAllResult
-#'
-#' @param object
+#' @description
+#' extract consensus tree result, which including all cells
+#' @param object MGPfact object
+#' @export
 #'
 GetTbTreeAllResult <- function(object){
   r = object@Tree[["tbtree_all"]]

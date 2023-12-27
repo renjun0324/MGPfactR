@@ -1,36 +1,41 @@
 
 #' SaveMURPDatToJulia
 #'
-#' @Description:
+#' @description
 #' extract murp data to julia environment
-#' @param object celltrek object
-#' @param murp_pc_number the number of principal components of the expression matrix after MURP downsampling
+#'
+#' @param object MGPfact object
+#' @param murp_pc_number the number of principal components of
+#' the expression matrix after MURP downsampling
 #' @export
 #'
 SaveMURPDatToJulia <- function(object,
-                               murp_pc_number = 5){
+                               murp_pc_number = 3){
 
   # murp_matrix = ct@MURP$Recommended_K_cl$centers
   # save(murp_matrix, file = "1_murp/murp_matrix.rda")
   Q = murp_pc_number
-  murp_matrix_pca = object@MURP$centersPCA$x[,1:Q,drop=FALSE]
+  pca = object@MURP$centersPCA$x
+  murp_matrix_pca = pca[,1:Q,drop=FALSE]
   save(murp_matrix_pca, file = "1_murp/murp_matrix_pca.rda")
 }
 
 #' RunningmodMGPpseudoT
 #'
-#' @Description:
-#' running modMGPpseudoT model in julia
+#' @description
+#' trajectory parameters estimation through MCMC sampling
 #'
-#' @param object celltrek object
+#' @param object MGPfact object
 #' @param julia_home Julia's bin path
+#' @param seed random seed, default is 723
+#' @param cores number of threads
+#'
 #' @export
 #'
 RunningmodMGPpseudoT <- function(object,
                                  julia_home,
                                  seed = 723,
                                  cores = 1){
-  require(JuliaCall)
   julia_setup(JULIA_HOME = julia_home)
 
   cat("/// parameters setting \n")
@@ -68,10 +73,14 @@ RunningmodMGPpseudoT <- function(object,
 
   cat("/// load data \n")
 
-  cmd = '@everywhere using CellTrek, Mamba, RData, Distributions
+  cmd = '@everywhere using MGPfact, Mamba, RData, Distributions
 data_path="1_murp/murp_matrix_pca.rda"
 yx = RData.load(data_path)
 yx = yx["murp_matrix_pca"][:,1:pc_number]'
+#   cmd = '@everywhere using MGPfact, Mamba, RData, Distributions
+# data_path="1_murp/murp_matrix_pca.rda"
+# yx = RData.load(data_path)
+# yx = yx["murp_matrix_pca"][:,1:pc_number]'
   cmd = gsub("\n", ";", cmd)
   julia_command(cmd)
 
@@ -82,8 +91,8 @@ yx = yx["murp_matrix_pca"][:,1:pc_number]'
 
   cat("/// running model \n")
 
-  cmd = 'model = CellTrek.modMGPpseudoT()
-SC,inits,scheme = CellTrek.Initialize(yx, pc_number, trajectory_number, start_id, iterations, chains_number)
+  cmd = 'model = MGPfact.modMGPpseudoT()
+SC,inits,scheme = MGPfact.Initialize(yx, pc_number, trajectory_number, start_id, iterations, chains_number)
 setinputs!(model, SC)
 setinits!(model, inits)
 setsamplers!(model, scheme)
@@ -105,12 +114,12 @@ write(string("2_pseudotime/2.1_julia_result/iter",sim.model.iter,"_bi",sim.model
 
 #' ReadPseSim
 #'
-#' @Description
+#' @description
 #' read and convert the object optimized by julia into R
 #'
 #' @param sim julia result
-#' @param init
-#' Logical value, whether to import the initial value.
+#' @param julia_home Julia's bin path
+#' @param init Logical value, whether to import the initial value.
 #' it can be viewed in the directory: 2_pseudotime/2.1_julia_result/inits.jld2
 #'
 #' @export
@@ -118,7 +127,6 @@ write(string("2_pseudotime/2.1_julia_result/iter",sim.model.iter,"_bi",sim.model
 ReadPseSim <- function(sim = NULL,
                        julia_home = NULL,
                        init = FALSE){
-  library(JuliaCall)
   julia_setup(JULIA_HOME = julia_home)
 
   ## load sim.jls
@@ -126,7 +134,7 @@ ReadPseSim <- function(sim = NULL,
 nc = 10
 addprocs(nc)
 @everywhere using Pkg
-@everywhere using CellTrek, Mamba, RData, Distributions, KernelFunctions'
+@everywhere using MGPfact, Mamba, RData, Distributions, KernelFunctions'
   cmd=paste0(cmd,'\nsim1=read("2_pseudotime/2.1_julia_result/',sim,'",ModelChains)')
   cmd = gsub("\n", ";", cmd)
   julia_command(cmd)
@@ -140,21 +148,20 @@ addprocs(nc)
 
 #' ImportPseSimToR
 #'
-#' @Description
+#' @description
 #' Import the pseudotime object optimized by julia into R
 #'
-#' @param sim julia result
+#' @param object MGPfact object
 #' @param init
 #' Logical value, whether to import the initial value.
 #' it can be viewed in the directory: 2_pseudotime/2.1_julia_result/inits.jld2
-#'
+#' @param julia_home julia bin path
 #' @export
 #'
 ImportPseResult <- function(object,
                             init = FALSE,
                             julia_home = FALSE){
 
-  library(JuliaCall)
   julia_setup(JULIA_HOME = julia_home)
 
   if(init){
@@ -203,12 +210,12 @@ hasinits = sim.model.hasinits
 
 #' GetSigmaFromJulia
 #'
-#' @Description:
-#' get the covariance matrix
+#' @description get the covariance matrix
 #'
-#' @param object celltrek object
-#' @param pse_sdf tThe data frame obtained by the function GetPseSdf
+#' @param object MGPfact object
+#' @param init initial values
 #' @param load logical value, whether to load julia's environment
+#' @param julia_home Julia's bin path
 #'
 #' @export
 #'
@@ -225,7 +232,7 @@ GetSigmaFromJulia <- function(object,
 # nc = 10
 # addprocs(nc)
 # @everywhere using Pkg
-# @everywhere using CellTrek, Mamba, RData, Distributions, KernelFunctions'
+# @everywhere using MGPfact, Mamba, RData, Distributions, KernelFunctions'
 # cmd = gsub("\n", ";", cmd)
 # julia_command(cmd)
   }
@@ -265,8 +272,8 @@ L = Int(L)
 S_list = [( tb = Tb[i];
             cl = C[i,:];
             le = lambda[i,:];
-            k = CellTrek.track.bifurcateKernel(tb, le, sigma, 0.0, delta);
-            x = [CellTrek.track.Trejactory(T[j], cl[j], X[j]) for j in 1:P];
+            k = MGPfact.track.bifurcateKernel(tb, le, sigma, 0.0, delta);
+            x = [MGPfact.track.Trejactory(T[j], cl[j], X[j]) for j in 1:P];
             ss = KernelFunctions.kernelmatrix(k, x);
             Matrix(Hermitian(ss .+ 1E-6 .* Matrix(I, P, P)))) for i in 1:L ]
 S = sum(S_list)'
@@ -291,8 +298,8 @@ L = Int(L)
 X_ = rand(truncated(Normal(0, sqrt(s2_x[1])), 0.0, 1.0), P_)
 S_list_ = [( tb = Tb[i];
              le = lambda[i,:];
-             k = CellTrek.track.bifurcateKernel(tb, le, sigma, 0.0, delta);
-             x = [CellTrek.track.Trejactory(vcat(T,T_)[j], hcat(C,C_)[i,j], vcat(X, X_)[j]) for j in 1:(P+P_)];
+             k = MGPfact.track.bifurcateKernel(tb, le, sigma, 0.0, delta);
+             x = [MGPfact.track.Trejactory(vcat(T,T_)[j], hcat(C,C_)[i,j], vcat(X, X_)[j]) for j in 1:(P+P_)];
              ss = KernelFunctions.kernelmatrix(k, x);
              Matrix(Hermitian(ss .+ 1E-6 .* Matrix(I, P+P_, P+P_)))) for i in 1:L ]
 S_ = sum(S_list_)'
@@ -325,11 +332,14 @@ S_ = sum(S_list_)'
   return(object)
 }
 
-#' ImportLogpdf
+#' ComputeLogpdf
 #'
-#' @Description:
-#' load probability density values for different parameters
-#'
+#' @description
+#' compute probability density values for different parameters
+#' @param object MGPfact object
+#' @param import_sim logical value, whether import result from julia environment
+#' @param julia_home Julia's bin path
+#' @export
 ComputeLogpdf <- function(object,
                           import_sim = FALSE,
                           julia_home=NULL ){
@@ -441,8 +451,8 @@ for i in 1:iterations l_x[i, :] .= [sum(logpdf(truncated(Normal(0, sqrt(s2_x[i,1
   #             tb = Tb[i, l, ch];
   #             cl = hcat(C[l,:]...)[i,:,ch];
   #             le = [lambda1[i,l,ch], lambda2[i,l,ch], lambda3[i,l,ch]];
-  #             k = CellTrek.pseudot.bifurcateKernel(tb, le, sigma, 0.0, delta);
-  #             gp = [CellTrek.pseudot.Trejactory(T[i, p, ch], cl[p], X[i, p, ch]) for p in 1:P];
+  #             k = MGPfact.pseudot.bifurcateKernel(tb, le, sigma, 0.0, delta);
+  #             gp = [MGPfact.pseudot.Trejactory(T[i, p, ch], cl[p], X[i, p, ch]) for p in 1:P];
   #             KernelFunctions.kernelmatrix(k, gp)
   #             )
   #         for l in 1:L]) .+ 1E-6 .* Matrix(I, P, P) ))
@@ -472,7 +482,8 @@ for i in 1:iterations l_x[i, :] .= [sum(logpdf(truncated(Normal(0, sqrt(s2_x[i,1
     lapply(names(logpdf), function(x){
       lp = logpdf[[x]]
       apply(lp, 2, function(y) cor(y, 1:iterations, method = m) )
-    }) %>% do.call(rbind,.) -> cor_df
+    }) -> tmp
+    cor_df = do.call(rbind,tmp)
     dimnames(cor_df) = list(names(logpdf),paste0("chain",1:chain))
     return(cor_df)
   })
@@ -491,13 +502,13 @@ for i in 1:iterations l_x[i, :] .= [sum(logpdf(truncated(Normal(0, sqrt(s2_x[i,1
   return(object)
 }
 
-
+# -------------
 #' #' # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #' #' SaveMURPDatToJulia
 #' #'
-#' #' @Description:
+#' #' @description
 #' #' extract murp data to julia environment
-#' #' @param object celltrek object
+#' #' @param object mgpfact object
 #' #' @param murp_pc_number the number of principal components of the expression matrix after MURP downsampling
 #' #' @export
 #' #'
@@ -514,10 +525,9 @@ for i in 1:iterations l_x[i, :] .= [sum(logpdf(truncated(Normal(0, sqrt(s2_x[i,1
 #' # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #' #' ImportLogpdf
 #' #'
-#' #' @Description:
+#' #' @description
 #' #'
 #' ImportLogpdf <- function(){
-#'   library(JuliaCall)
 #'   julia_setup(JULIA_HOME = "/public/home/renjun/tool/julia-1.6.6/bin")
 #'
 #'   julia_command("using JLD2, RCall")
@@ -528,7 +538,7 @@ for i in 1:iterations l_x[i, :] .= [sum(logpdf(truncated(Normal(0, sqrt(s2_x[i,1
 #' # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #' #' ImportTrackOptimToR
 #' #'
-#' #' @Description:
+#' #' @description
 #' #'
 #' #' @param object import tracking object from julia to R
 #' #'
@@ -539,7 +549,6 @@ for i in 1:iterations l_x[i, :] .= [sum(logpdf(truncated(Normal(0, sqrt(s2_x[i,1
 #'   Q = getParams(object, "murp_pc_number")
 #'
 #'   ## load data from julia
-#'   library(JuliaCall)
 #'   julia_setup(JULIA_HOME = "/public/home/renjun/tool/julia-1.6.6/bin")
 #'
 #'   cmd1 = 'sample_value = map(x -> r.trace[x].metadata["x"], 1:length(r.trace))'
@@ -578,7 +587,7 @@ for i in 1:iterations l_x[i, :] .= [sum(logpdf(truncated(Normal(0, sqrt(s2_x[i,1
 #' # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #' #' ReadTrackSim
 #' #'
-#' #' @Description:
+#' #' @description
 #' #' Import the object optimized by julia into R
 #' #'
 #' #' @param sim julia result
@@ -588,7 +597,6 @@ for i in 1:iterations l_x[i, :] .= [sum(logpdf(truncated(Normal(0, sqrt(s2_x[i,1
 #' #'
 #' ReadTrackSim <- function(sim = NULL,
 #'                          init = FALSE){
-#'   library(JuliaCall)
 #'   julia_setup(JULIA_HOME = "/public/home/renjun/tool/julia-1.6.6/bin")
 #'
 #'   ## load sim.jls
@@ -616,11 +624,10 @@ for i in 1:iterations l_x[i, :] .= [sum(logpdf(truncated(Normal(0, sqrt(s2_x[i,1
 #' # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #' #' ImportTrackSimToR
 #' #'
-#' #' @Description:
+#' #' @description
 #' #'
 #' ImportTrackSimToR <- function(object, init = FALSE){
 #'
-#'   library(JuliaCall)
 #'   julia_setup(JULIA_HOME = "/public/home/renjun/tool/julia-1.6.6/bin")
 #'
 #'   if(init){
@@ -674,10 +681,9 @@ for i in 1:iterations l_x[i, :] .= [sum(logpdf(truncated(Normal(0, sqrt(s2_x[i,1
 #' # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #' #' ReadTrackSim
 #' #'
-#' #' @Description:
+#' #' @description
 #' #'
 #' ReadTrackOptim <- function(sim = NULL){
-#'   library(JuliaCall)
 #'   julia_setup(JULIA_HOME = "/public/home/renjun/tool/julia-1.6.6/bin")
 #'
 #'   ## load sim.jls

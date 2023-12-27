@@ -1,11 +1,12 @@
 
 #' GetMURPMapLabel
+#'
 #' @description
 #' map the existing attribute labels about cells to murp
 #'
 #' Arguments:
-#' @param object celltrek object
-#' @param labels
+#' @param object MGPfact object
+#' @param labels Cell attribute labels to map in MURP
 #'
 #' @export
 #'
@@ -17,9 +18,10 @@ GetMURPMapLabel <- function(object, labels = NULL){
 
   ######### 1. get murp_cellinfo
   if(!is.null(labels)){
+    mcl = paste0("T[", object@MetaData$murp_cluster, "]")
     tmp <- lapply(labels, function(lab){
       cat(lab, "\n")
-      tab = table(object@MetaData[,c(lab,"murp_cluster")]) %>% as.matrix
+      tab = table(object@MetaData[,lab],mcl) %>% as.matrix
       tab_prop = apply(tab, 2, function(x){ x/sum(x) })
       if(is.null(dim(tab_prop))) {
         tmp = rep(rownames(tab),length(tab_prop))
@@ -31,17 +33,8 @@ GetMURPMapLabel <- function(object, labels = NULL){
 
     })
     tmp <- do.call(cbind, tmp) %>% as.data.frame
-    colnames(tmp) <- d2_label
+    colnames(tmp) <- labels
     object = AddMURPMetadata(object, tmp)
-    # murp_cellinfo <- data.frame(row.names = paste0("T[",1:nrow(object@MURP$Recommended_K_cl$centers),"]"),
-    #                             tmp)
-    # ori = GetMURPInfo(object)
-    # if(is.null(ori)){
-    #   object@MURP$murp_cellinfo <- murp_cellinfo
-    # }else{
-    #
-    # }
-
   }
   object = assignSettings(object,"label",labels)
   return(object)
@@ -49,7 +42,11 @@ GetMURPMapLabel <- function(object, labels = NULL){
 
 #' GetMURPInfo
 #'
-#' @param object
+#' @description
+#' get murp metadata
+#'
+#' @param object MGPfact object
+#' @export
 #'
 GetMURPInfo <- function(object){
   r = object@MURP$murp_cellinfo
@@ -57,10 +54,12 @@ GetMURPInfo <- function(object){
 }
 
 #' AddMURPMetadata
+#' @description
+#' add attribute dataframe to object
 #'
-#' @param object
-#' @param df
-#'
+#' @param object MGPfact object
+#' @param df attribute data frame to be added
+#' @export
 AddMURPMetadata <- function(object, df){
 
   meta = GetMURPInfo(object)
@@ -70,15 +69,20 @@ AddMURPMetadata <- function(object, df){
   }
   i = which(colnames(meta) %nin% colnames(df))
   cols = colnames(meta)[i]
-  meta = cbind(meta[,cols,drop=F], df)
+  meta = cbind(meta[,cols,drop=F], df[rownames(meta),,drop=F])
   object@MURP$murp_cellinfo = meta
   return(object)
 }
 
 #' AddMURPMetadata
 #'
-#' @param object
-#' @param df
+#' @description
+#' add attribute dataframe to object
+#'
+#' @param object MGPfact object
+#' @param df attribute data frame to be added
+#'
+#' @export
 #'
 AddMetadata <- function(object, df){
 
@@ -94,13 +98,17 @@ AddMetadata <- function(object, df){
 #' GetPseSdf
 #'
 #' @description
-#' get all param info from optim result
+#' Organize the results obtained from 'RunningmodMGPpseudoT'
 #'
-#' @param object
-#' @param param_meanvalue
-#' @param unified_direction
-#' @param rm_adjust_chain
-#' @param rev
+#' @param object MGPfact object
+#' @param param_meanvalue The data frame containing the mean values of each parameter,
+#' obtainable through 'GetAllParamMeanChain'
+#' @param unified_direction Logical value, indicating whether to
+#' automatically adjust the representation of differentiation direction by pseudotime
+#' @param rm_adjust_chain Logical value, indicating whether to discard some low-quality chains
+#' @param rev Whether to perform direction reversal based on pseudotime
+#'
+#' @export
 #'
 GetPseSdf <- function(object,
                       param_meanvalue = NULL,
@@ -114,12 +122,9 @@ GetPseSdf <- function(object,
   # unified_direction = FALSE
   # rm_adjust_chain = TRUE
   # rev = FALSE
-  # unified_direction = TRUE
-  # rm_adjust_chain = FALSE
-  # rev = FALSE
 
   if(is.null(param_meanvalue)){
-    iter = getParams(ct,"pse_optim_iterations")
+    iter = getParams(object,"pse_optim_iterations")
     # load(paste0("2_pseudotime/param_meanvalue_",iter,"_",iter,".rda"))
     param_meanvalue <- GetAllParamMeanChain(object = object, aspect = "pse",
                                             iter_range = rep(getParams(object, "pse_optim_iterations"),2))
@@ -198,7 +203,7 @@ GetPseSdf <- function(object,
     l1_list = param_lambda1[1,,drop=F]
     l2_list = param_lambda2[1,,drop=F]
     l3_list = param_lambda3[1,,drop=F]
-    tmp = matrix(param_C[1,], nr=L)
+    tmp = matrix(param_C[1,], nrow=L)
 
     c_combine = tmp
     rownames(c_combine) = paste0("L_", 1:L)
@@ -218,7 +223,7 @@ GetPseSdf <- function(object,
     tb_chain <- as.vector(param_tb_2)
     names(tb_chain) <- unlist(lapply(colnames(param_tb_2),
                                      function(x) paste0(rownames(param_tb_2),"_",x)))
-    tb_pam <- cluster::pam(tb_chain, L, metric = "manhattan")
+    tb_pam <- pam(tb_chain, L, metric = "manhattan")
     pdf("2_pseudotime/2.2_binarytree/tb_cluster.pdf")
     plot(x = tb_chain, y = tb_chain, col = tb_pam$clustering)
     dev.off()
@@ -227,7 +232,7 @@ GetPseSdf <- function(object,
 
     ### 2. 准备一个漂亮的C
     C_list <- lapply(filter_ch, function(ch){
-      tmp = matrix(param_C[ch, ], nr=L)
+      tmp = matrix(param_C[ch, ], nrow=L)
       rownames(tmp) = c(paste0(ch,"_L",1:L))
       tmp
     })
@@ -239,7 +244,7 @@ GetPseSdf <- function(object,
     split_c <- split(names(cluster), as.factor(cluster))
     group_list <- lapply(split_c, function(x){
       if(length(x)==1){
-        tmp = matrix(c[x,],nr=1)
+        tmp = matrix(c[x,],nrow=1)
         dimnames(tmp) = list(x,colnames(c))
         tmp
       }else{
@@ -320,7 +325,6 @@ GetPseSdf <- function(object,
 
   }
 
-
   ###############################################
   #####             create sdf              #####
   ###############################################
@@ -349,12 +353,12 @@ GetPseSdf <- function(object,
   sdf <- data.frame(T = T,
                     C0,
                     C,
-                    matrix(rep(Tb, each=P),nr=P),
-                    object@MURP$centersPCA$x[,1:getParams(ct, "murp_pc_number")],
+                    matrix(rep(Tb, each=P),nrow=P),
+                    object@MURP$centersPCA$x[,1:getParams(object, "murp_pc_number")],
                     X = X,
-                    matrix(rep(lambda1, each=P),nr=P),
-                    matrix(rep(lambda2, each=P),nr=P),
-                    matrix(rep(lambda3, each=P),nr=P),
+                    matrix(rep(lambda1, each=P),nrow=P),
+                    matrix(rep(lambda2, each=P),nrow=P),
+                    matrix(rep(lambda3, each=P),nrow=P),
                     mt = rep(mt, P),
                     s2t = rep(s2t, P),
                     s2x = rep(s2x, P),
@@ -405,9 +409,10 @@ GetPseSdf <- function(object,
 #' @description
 #' Visualize bifurcation effects on PC and pseudotime
 #'
-#' @param object
-#' @param pse_sdf
-#' @param lm
+#' @param object MGPfact object
+#' @param lm Logical value, indicating whether to add a linear regression curve
+#'
+#' @export
 #'
 PlotPCPseBif <- function(object,
                          lm = FALSE){
@@ -496,11 +501,10 @@ PlotPCPseBif <- function(object,
 #' @description
 #' Visualize different labels on PC and pseudotime with
 #'
-#' @param object
-#' @param pse_sdf
-#' @param labels
-#' @param lm
-#'
+#' @param object MGPfact object
+#' @param labels attributes need to plot
+#' @param lm Logical value, indicating whether to add a linear regression curve
+#' @export
 PlotPCPseLabel <- function(object,
                            labels,
                            lm = FALSE){
@@ -592,16 +596,16 @@ PlotPCPseLabel <- function(object,
 #' @description
 #' draw the correlation between truetime and pseudotime in geom_violin
 #'
-#' @param mamba_object
-#' @param dm.match
-#' @param pdfName
-#'
+#' @param truetime sampling time points
+#' @param pseudotime pseudotime
+#' @param title plot title
+#' @param ftheme ggplot theme
+#' @export
 CorViolinPlot <- function(truetime = NULL,
                           pseudotime = NULL,
                           title = "TrueTime ~ PseudoTime",
                           ftheme = NULL){
 
-  require(ggplot2)
   rj.ftheme <- theme(panel.background = element_rect(fill='transparent', color="black"),
                      strip.text = element_text(size = 10),
                      panel.grid.minor=element_blank(),
@@ -656,19 +660,19 @@ CorViolinPlot <- function(truetime = NULL,
 
 }
 
-
-#' #' GetPsePCASdf
-#' #'
-#' #' @description
-#' #' get all param info from optim result
-#' #'
-#' #' @param object
-#' #' @param param_meanvalue
-#' #' @param t_pred_index
-#' #' @param unified_direction
-#' #' @param rev
-#' #' @param labels
-#' #'
+# -------------
+#' GetPsePCASdf
+#'
+#' @description
+#' get all param info from optim result
+#'
+#' @param object
+#' @param param_meanvalue
+#' @param t_pred_index
+#' @param unified_direction
+#' @param rev
+#' @param labels
+#'
 #' GetPsePCASdf <- function(object,
 #'                          param_meanvalue = NULL,
 #'                          t_pred_index = 1,
@@ -746,7 +750,7 @@ CorViolinPlot <- function(truetime = NULL,
 #'     l1_list = param_lambda1[1,]
 #'     l2_list = param_lambda2[1,]
 #'     l3_list = param_lambda3[1,]
-#'     tmp = matrix(param_C[1,], nr=3)
+#'     tmp = matrix(param_C[1,], nrow=3)
 #'
 #'     c_combine = tmp[,]
 #'     rownames(c_combine) = paste0("L_", 1:L)
@@ -778,7 +782,7 @@ CorViolinPlot <- function(truetime = NULL,
 #'
 #'     ### 2. 准备一个漂亮的C
 #'     C_list <- lapply(filter_ch, function(ch){
-#'       tmp = matrix(param_C[ch, ], nr=L)
+#'       tmp = matrix(param_C[ch, ], nrow=L)
 #'       rownames(tmp) = c(paste0(ch,"_L",1:L))
 #'       tmp
 #'     })
@@ -790,7 +794,7 @@ CorViolinPlot <- function(truetime = NULL,
 #'     split_c <- split(names(cluster), as.factor(cluster))
 #'     group_list <- lapply(split_c, function(x){
 #'       if(length(x)==1){
-#'         tmp = matrix(c[x,],nr=1)
+#'         tmp = matrix(c[x,],nrow=1)
 #'         dimnames(tmp) = list(x,colnames(c))
 #'         tmp
 #'       }else{
@@ -894,12 +898,12 @@ CorViolinPlot <- function(truetime = NULL,
 #'   sdf <- data.frame(T = T,
 #'                     C0,
 #'                     C,
-#'                     matrix(rep(Tb, each=P),nr=P),
+#'                     matrix(rep(Tb, each=P),nrow=P),
 #'                     object@MURP$Recommended_K_cl$centers[,1:getParams(ct, "murp_pc_number")],
 #'                     X = X,
-#'                     matrix(rep(lambda1, each=P),nr=P),
-#'                     matrix(rep(lambda2, each=P),nr=P),
-#'                     matrix(rep(lambda3, each=P),nr=P),
+#'                     matrix(rep(lambda1, each=P),nrow=P),
+#'                     matrix(rep(lambda2, each=P),nrow=P),
+#'                     matrix(rep(lambda3, each=P),nrow=P),
 #'                     mt = rep(mt, P),
 #'                     s2t = rep(s2t, P),
 #'                     s2x = rep(s2x, P),
