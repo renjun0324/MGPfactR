@@ -44,3 +44,18 @@ library(JuliaCall)
 julia_home = gsub("/julia","",system("which julia", intern = T))
 julia_setup(JULIA_HOME=julia_home)
 ```
+
+## quick start
+
+```r
+data(fibroblast_reprogramming_treutlein)
+data = fibroblast_reprogramming_treutlein
+counts = data$counts
+cell_info = data$cell_info
+rownames(cell_info) = cell_info$cell_id
+```
+
+### (1) 
+exp
+ct <- CreateMGPfactObject(data_matrix = t(cd8_tpm_rmMAIT_tpm_1500genes), 
+                           MetaData = cellinfo_cd8_rmMAIT,  datasetTitle = "GSE99254_CD8_norm")

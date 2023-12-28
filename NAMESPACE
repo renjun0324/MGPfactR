@@ -1,3 +1,4 @@
+exportPattern("^[[:alpha:]]+")
 import("ggplot2","dplyr","MURP","JuliaCall","ggraph")
 importFrom("stats", "aov", "cor", "loess", "prcomp", "sd", "t.test", "wilcox.test","dnorm", "qnorm", "rnorm","quantile","cor.test", "lm", "p.adjust")
 importFrom("grDevices", "dev.off", "pdf", "colorRampPalette", "cairo_pdf")
