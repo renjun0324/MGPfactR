@@ -10,6 +10,5 @@ om(x)
 \item{x}{expression matrix, row is cell, col is gene}
 }
 \description{
-:
 Calculate omega for computing MURP
 }

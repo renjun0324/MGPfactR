@@ -945,54 +945,6 @@ Save2CS <- function(obj,
   return(obj)
 }
 
-#' SaveSigSDF
-#'
-#' @description
-#'
-#' @param ct MGPfact object
-#' @param cs MGPfact-gene object
-#' @param ct_method dge method
-#' @param sig_label dge factor
-#' @param sig_method statistics label
-#' @param sig_th filter threshold
-#'
-#' sig = TRUE
-#' ct_method = "lm"
-#' sig_method = "pvalue"
-#' sig_th = 0.05
-#'
-#' @export
-#'
-# SaveSigSDF <- function(ct,
-#                        cs,
-#                        sdf,
-#                        sig_label,
-#                        ct_method,
-#                        sig_method,
-#                        sig_th){
-#
-#   obj = cs[[ct_method]]
-#   if( ("sig_result" %nin% names(obj)) | (paste0(sig_method,"_",sig_th) %nin% names(obj$sig_result)) ){
-#     cs = ComputeSigGene(cs, ct_method, sig_method, sig_th)
-#   }
-#   if( ("new_data" %nin% names(obj)) | (paste0(sig_method,"_",sig_th) %nin% names(obj$new_data)) ){
-#     cs = ComputeSigData(ct, cs, sig_label, ct_method, sig_method, sig_th)
-#   }
-#
-#   new_data_index = paste0(sig_label, "_",sig_method,"_",sig_th)
-#   sdata = cs[[ct_method]]$new_data[[new_data_index]]$sdata
-#   cl = cs[[ct_method]]$new_data[[new_data_index]]$cl
-#   colnames(cl) = paste0("PC_",1:ncol(cl))
-#   sdf[, grep("PC", colnames(sdf))] = NULL
-#   sdf = cbind(sdf, cl)
-#
-#   save(sdf, file = "sdf.rda")
-#   save(cl, file = paste0('cl_', nrow(cl) ,'cell.rda'))
-#   save(sdata, file = "sdata.rda")
-#
-#   return(cs)
-# }
-
 #' WriteGene2TXT
 #'
 #' @description
@@ -1104,4 +1056,51 @@ WriteGene2TXT <- function(cs,
 #   write.csv(gene_weight_order, file = paste0("3_tracking/3.3_gene_weight/gene_weight_order_", iter_range[1],"_",iter_range[2],".csv") )
 #
 #   return(object)
+# }
+#' SaveSigSDF
+#'
+#' @description
+#'
+#' @param ct MGPfact object
+#' @param cs MGPfact-gene object
+#' @param ct_method dge method
+#' @param sig_label dge factor
+#' @param sig_method statistics label
+#' @param sig_th filter threshold
+#'
+#' sig = TRUE
+#' ct_method = "lm"
+#' sig_method = "pvalue"
+#' sig_th = 0.05
+#'
+#' @export
+#'
+# SaveSigSDF <- function(ct,
+#                        cs,
+#                        sdf,
+#                        sig_label,
+#                        ct_method,
+#                        sig_method,
+#                        sig_th){
+#
+#   obj = cs[[ct_method]]
+#   if( ("sig_result" %nin% names(obj)) | (paste0(sig_method,"_",sig_th) %nin% names(obj$sig_result)) ){
+#     cs = ComputeSigGene(cs, ct_method, sig_method, sig_th)
+#   }
+#   if( ("new_data" %nin% names(obj)) | (paste0(sig_method,"_",sig_th) %nin% names(obj$new_data)) ){
+#     cs = ComputeSigData(ct, cs, sig_label, ct_method, sig_method, sig_th)
+#   }
+#
+#   new_data_index = paste0(sig_label, "_",sig_method,"_",sig_th)
+#   sdata = cs[[ct_method]]$new_data[[new_data_index]]$sdata
+#   cl = cs[[ct_method]]$new_data[[new_data_index]]$cl
+#   colnames(cl) = paste0("PC_",1:ncol(cl))
+#   sdf[, grep("PC", colnames(sdf))] = NULL
+#   sdf = cbind(sdf, cl)
+#
+#   save(sdf, file = "sdf.rda")
+#   save(cl, file = paste0('cl_', nrow(cl) ,'cell.rda'))
+#   save(sdata, file = "sdata.rda")
+#
+#   return(cs)
 # }

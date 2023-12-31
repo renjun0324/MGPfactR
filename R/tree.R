@@ -35,7 +35,7 @@ split_tb <- function(t, tb){
 split_binary_tree <- function(df, sep = "L1"){
 
   final_result <- lapply(1:length(df), function(i){
-    print(i)
+    # print(i)
     if(i == 1){
       x = df[[1]] %>%
         rownames_to_column("c_names") %>%
@@ -70,7 +70,7 @@ split_binary_tree <- function(df, sep = "L1"){
 split_tb_tree <- function(df_list){
 
   tree <- lapply(1:length(df_list), function(i){
-    print(i)
+    # print(i)
     df = df_list[[i]]
 
     if(nrow(df)==0){
@@ -108,7 +108,6 @@ split_tb_tree <- function(df_list){
 #'
 #' @return matrix
 #'
-#' @export
 #' @noRd
 adj_tb_tree <- function(tb_group_list, P, point_names = NULL){
   Group = tb_group_list
@@ -129,7 +128,7 @@ adj_tb_tree <- function(tb_group_list, P, point_names = NULL){
 
     G = Group[[g]]
 
-    cat(paste0("G",g,"\n"))
+    # cat(paste0("G",g,"\n"))
     if(is.null(G)){
       cat("G",g,"is null \n")
       Group[[g]] = NA
@@ -156,7 +155,7 @@ adj_tb_tree <- function(tb_group_list, P, point_names = NULL){
     for(d in G){
       if(nrow(d)==0) next;
       n = d$c_names
-      cat(n, "\n")
+      # cat(n, "\n")
       for(i in 1:nrow(d) ){
         #print(i)
         if(i==nrow(d)) break;
@@ -276,7 +275,7 @@ GetBinTree <- function(object,
   ## length(df_list) = length(Tb)
   tb_cut_list <- lapply(1:L, function(i){
     tb = paste0("Tb_", i)
-    cat("tb: ", tb, "\n")
+    # cat("tb: ", tb, "\n")
     pos = split_tb(bin_f$T, Tb[tb])
     lapply(pos, function(x) bin_f[x,])
   })
@@ -287,7 +286,7 @@ GetBinTree <- function(object,
   tb_group_list <- lapply(1:L, function(i){
     tb = paste0("Tb_", i)
     l = paste0("C0_",i)
-    cat("tb: ", tb, " C: ", l, "\n")
+    # cat("tb: ", tb, " C: ", l, "\n")
     split_binary_tree(tb_cut_list[[tb]], sep = l)
   })
 
@@ -440,7 +439,7 @@ GetTbTreeDrq <- function(object,
 
     for(i in (root+1):L){
 
-      cat("adj", i, "\n")
+      # cat("adj", i, "\n")
       tb = Tb[i]
       c = paste0("C0_",i)
       new_ind1_list = list() # 创建空list准备放入
@@ -449,7 +448,7 @@ GetTbTreeDrq <- function(object,
       # 上一个L中c1的后面
       for(j in 1:length(ind1_list)){
 
-        cat(j, "\n")
+        # cat(j, "\n")
         ind = ind1_list[[j]]$ind
         if(is.null(ind)) next
         tmp = tb_f[ind,]
@@ -756,7 +755,7 @@ GetTbTreeAllpoint <- function(object,
 
   ### 2. 把每个中心点加入分别加入每个簇并命名
   sdata_cluster_centers = lapply(1:P, function(i){
-    print(i)
+    # print(i)
     exp = sdata_cluster[[i]]
     centers = matrix(murp$Recommended_K_cl$centers[i,], ncol = ncol(murp$rawdata))
     tmp = rbind(exp, centers)
@@ -779,7 +778,7 @@ GetTbTreeAllpoint <- function(object,
   max_v = max(unlist(dist_list))
   min_v = 1e-9
   mst_list <- lapply(1:P, function(i){
-    print(i)
+    # print(i)
     dist_m = dist_list[[i]]
     if(max(dist_m)==0){
       dist_m = as.matrix(replace(dist_m, dist_m == 0, min_v))
@@ -793,7 +792,7 @@ GetTbTreeAllpoint <- function(object,
 
   ### 5. 获取所有簇的邻接矩阵
   adj_matrix_list <- lapply(1:P, function(i){
-    print(i)
+    # print(i)
     mst = mst_list[[i]]
     adj = as.matrix(as_adjacency_matrix(mst))
     adj

@@ -2,7 +2,7 @@
 % Please edit documentation in R/sig.R
 \name{WriteGene2TXT}
 \alias{WriteGene2TXT}
-\title{SaveSigSDF}
+\title{WriteGene2TXT}
 \usage{
 WriteGene2TXT(cs, ct_method, sig_method, sig_label, sig_th)
 }
@@ -20,11 +20,7 @@ sig = TRUE
 ct_method = "lm"
 sig_method = "pvalue"
 sig_th = 0.05}
-
-\item{ct}{MGPfact object}
 }
 \description{
-
-
 Write genes with significant differences to a txt file
 }

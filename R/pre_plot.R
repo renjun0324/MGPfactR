@@ -163,27 +163,47 @@ PlotLabelSplit <- function(object = NULL,
                            labels = NULL,
                            width = 9){
 
+  pca = is.null(object@DimReducs@PCA)
+  tsne = is.null(object@DimReducs@tSNE)
+  umap = is.null(object@DimReducs@UMAP)
+  dm = is.null(object@DimReducs@DM)
+  TTAG = c("PCA" = pca, "tSNE" = tsne, "UMAP" = umap, "DM" = dm)
+  stag = names(which(!TTAG))
+
   ### 分别在四个维度上可视化不同的label
   len = length(labels)
   tmp = data.frame(object@MetaData[,labels])
   colnames(tmp) = labels
   for(i in 1:ncol(tmp)) tmp[,i] = as.factor(tmp[,i])
-  df <- data.frame(DM1 = object@DimReducs@DM$X[,1],
-                   DM2 = object@DimReducs@DM$X[,2],
-                   PCA1 = object@DimReducs@PCA$x[,1],
-                   PCA2 = object@DimReducs@PCA$x[,2],
-                   PCA3 = object@DimReducs@PCA$x[,3],
-                   PCA4 = object@DimReducs@PCA$x[,4],
-                   tSNE1 = object@DimReducs@tSNE$Y[,1],
-                   tSNE2 = object@DimReducs@tSNE$Y[,2],
-                   UMAP1 = object@DimReducs@UMAP$layout[,1],
-                   UMAP2 = object@DimReducs@UMAP$layout[,2],
-                   tmp, stringsAsFactors = FALSE)
+  df = tmp
+  for(c in stag){
+    if(c=="PCA"){
+      df <- data.frame(PCA1 = object@DimReducs@PCA$x[,1],
+                       PCA2 = object@DimReducs@PCA$x[,2],
+                       df, stringsAsFactors = FALSE)
+    }
+    if(c=="tSNE"){
+      df <- data.frame(tSNE1 = object@DimReducs@tSNE$Y[,1],
+                       tSNE2 = object@DimReducs@tSNE$Y[,2],
+                       df, stringsAsFactors = FALSE)
+    }
+    if(c=="UMAP"){
+      df <- data.frame(UMAP1 = object@DimReducs@UMAP$layout[,1],
+                       UMAP2 = object@DimReducs@UMAP$layout[,2],
+                       df, stringsAsFactors = FALSE)
+    }
+    if(c=="DM"){
+      df <- data.frame(DM1 = object@DimReducs@DM$X[,1],
+                       DM2 = object@DimReducs@DM$X[,2],
+                       df, stringsAsFactors = FALSE)
+    }
+  }
+  # df <- data.frame(df, tmp, stringsAsFactors = FALSE)
 
   dir1 = "1_murp/reduction_split/"
   dir.create(dir1)
 
-  for(c in c("DM","PCA","tSNE","UMAP")){
+  for(c in stag){
 
     cat(c, "\n")
     a = paste0(c,1)
@@ -267,22 +287,41 @@ PlotLabelMerge <- function(object = NULL,
                            labels = NULL,
                            width = 17){
 
+  pca = is.null(object@DimReducs@PCA)
+  tsne = is.null(object@DimReducs@tSNE)
+  umap = is.null(object@DimReducs@UMAP)
+  dm = is.null(object@DimReducs@DM)
+  TTAG = c("PCA" = pca, "tSNE" = tsne, "UMAP" = umap, "DM" = dm)
+  stag = names(which(!TTAG))
+
   ### 分别在四个维度上可视化不同的label
   len = length(labels)
   tmp = data.frame(object@MetaData[,labels])
   colnames(tmp) = labels
   for(i in 1:ncol(tmp)) tmp[,i] = as.factor(tmp[,i])
-  df <- data.frame(DM1 = object@DimReducs@DM$X[,1],
-                   DM2 = object@DimReducs@DM$X[,2],
-                   PCA1 = object@DimReducs@PCA$x[,1],
-                   PCA2 = object@DimReducs@PCA$x[,2],
-                   PCA3 = object@DimReducs@PCA$x[,3],
-                   PCA4 = object@DimReducs@PCA$x[,4],
-                   tSNE1 = object@DimReducs@tSNE$Y[,1],
-                   tSNE2 = object@DimReducs@tSNE$Y[,2],
-                   UMAP1 = object@DimReducs@UMAP$layout[,1],
-                   UMAP2 = object@DimReducs@UMAP$layout[,2],
-                   tmp, stringsAsFactors = FALSE)
+  df = tmp
+  for(c in stag){
+    if(c=="PCA"){
+      df <- data.frame(PCA1 = object@DimReducs@PCA$x[,1],
+                       PCA2 = object@DimReducs@PCA$x[,2],
+                       df, stringsAsFactors = FALSE)
+    }
+    if(c=="tSNE"){
+      df <- data.frame(tSNE1 = object@DimReducs@tSNE$Y[,1],
+                       tSNE2 = object@DimReducs@tSNE$Y[,2],
+                       df, stringsAsFactors = FALSE)
+    }
+    if(c=="UMAP"){
+      df <- data.frame(UMAP1 = object@DimReducs@UMAP$layout[,1],
+                       UMAP2 = object@DimReducs@UMAP$layout[,2],
+                       df, stringsAsFactors = FALSE)
+    }
+    if(c=="DM"){
+      df <- data.frame(DM1 = object@DimReducs@DM$X[,1],
+                       DM2 = object@DimReducs@DM$X[,2],
+                       df, stringsAsFactors = FALSE)
+    }
+  }
 
   dir2 = "1_murp/reduction_merge/"
   dir.create(dir2)
@@ -296,7 +335,7 @@ PlotLabelMerge <- function(object = NULL,
       width = 9.5 + max(strwidth(d2_levels, "inches"))
     }
     ### 1. all point
-    plist <- lapply(c("DM","PCA","tSNE","UMAP"), function(c){
+    plist <- lapply(stag, function(c){
       cat(c, "\n")
       a = paste0(c,1)
       b = paste0(c,2)
@@ -311,7 +350,7 @@ PlotLabelMerge <- function(object = NULL,
     # ggplot2::ggsave(paste0(dir2, "1_", lab,".png"), p, width = width, height = 8)
 
     ### 2. murp
-    plist <- lapply(c("DM","PCA","tSNE","UMAP"), function(c){
+    plist <- lapply(stag, function(c){
       cat(c, "\n")
       a = paste0(c,1)
       b = paste0(c,2)
@@ -342,7 +381,7 @@ PlotLabelMerge <- function(object = NULL,
     # ggplot2::ggsave(paste0(dir2, "2_murp_", lab,".png"), p, width = width, height = 8)
 
     ### 3. murp_label
-    plist <- lapply(c("DM","PCA","tSNE","UMAP"), function(c){
+    plist <- lapply(stag, function(c){
       cat(c, "\n")
       a = paste0(c,1)
       b = paste0(c,2)

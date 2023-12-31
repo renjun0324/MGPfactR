@@ -6,7 +6,7 @@
 
 #' om
 #'
-#' @description:
+#' @description
 #' Calculate omega for computing MURP
 #' @param x expression matrix, row is cell, col is gene
 #' @export
@@ -14,6 +14,43 @@
 om <- function(x){
   r = -0.036 + 78.34 * (1/nrow(x)) + 1.85 * 1e-5 * ncol(x)
   return(r)
+}
+
+#' LogNormalize
+#' @description normalize data
+#' @param data count matrix
+#' @param scale.factor scale factor
+#' @param margin Which dimension to standardize by
+#' @param verose logical value, whether to output progress
+#' @export
+LogNormalize <- function(
+    data,
+    scale.factor = 1e4,
+    margin = 2L,
+    verbose = TRUE,
+    ...
+) {
+  ncells <- dim(x = data)[margin]
+  if (isTRUE(x = verbose)) {
+    pb <- txtProgressBar(file = stderr(), style = 3)
+  }
+  for (i in seq_len(length.out = ncells)) {
+    x <- if (margin == 1L) {
+      data[i, ]
+    } else {
+      data[, i]
+    }
+    xnorm <- log1p(x = x / sum(x) * scale.factor)
+    if (margin == 1L) {
+      data[i, ] <- xnorm
+    } else {
+      data[, i] <- xnorm
+    }
+    if (isTRUE(x = verbose)) {
+      setTxtProgressBar(pb = pb, value = i / ncells)
+    }
+  }
+  return(data)
 }
 
 #' MURPDownsampling

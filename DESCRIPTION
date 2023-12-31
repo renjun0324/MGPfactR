@@ -1,6 +1,6 @@
 Package: MGPfactR
 Title: MGPfactR (One Line, Title Case)
-Version: 0.1.0
+Version: 0.2.0
 Date: 2023-12-25
 Authors@R: person(family = "RenJun",
            role = c("aut", "cre"),
@@ -12,7 +12,8 @@ Depends:
     ggraph,
     dplyr,
     MURP,
-    JuliaCall
+    JuliaCall,
+    optimParallel
 Imports:
     methods,
     grDevices,
@@ -34,14 +35,14 @@ Imports:
     parallelDist,
     Matrix,
     invgamma,
-    optimParallel,
     rotations,
     mvtnorm,
     ggridges,
     corpcor,
     MASS,
     Rmisc,
-    ggpubr
+    ggpubr,
+    ggimage
 License: GPL-3
 Encoding: UTF-8
 LazyData: true

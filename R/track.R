@@ -374,7 +374,7 @@ ComputeGeneWeight <- function(object = NULL){
 #'
 WeightGeneFilter<- function(object,
                             iter_range = NULL,
-                            method = c("top_ratio","quantile","confidence","top_number","weight_cut"),
+                            method = c("top_ratio","top_number","weight_cut"),
                             conf.int = 0.95,
                             q_seq = 0.25,
                             top_ratio = 0.1,
@@ -389,28 +389,28 @@ WeightGeneFilter<- function(object,
   if(method=="top_ratio"){
     object = assignSettings(object, paste0("weight_",method), top_ratio)
   }
-  if(method=="quantile"){
-    object = assignSettings(object, paste0("weight_",method), q_seq)
-  }
+  # if(method=="quantile"){
+  #   object = assignSettings(object, paste0("weight_",method), q_seq)
+  # }
   if(method=="top_number"){
     object = assignSettings(object, paste0("weight_",method), top_number)
   }
-  if(method=="confidence"){
-    object = assignSettings(object, paste0("weight_",method), conf.int)
-  }
+  # if(method=="confidence"){
+  #   object = assignSettings(object, paste0("weight_",method), conf.int)
+  # }
   if(method=="weight_cut"){
     object = assignSettings(object, paste0(method), weight_cut)
   }
 
   # set filename
-  if(method == "confidence"){
-    # file_name = paste0("confidence_", getParams(object, "weight_conf.int"))
-    file_name = paste0("confidence_", conf.int)
-  }
-  if(method == "quantile"){
-    # file_name = paste0("quantile_", getParams(object, "weight_q_seq"))
-    file_name = paste0("quantile_", q_seq)
-  }
+  # if(method == "confidence"){
+  #   # file_name = paste0("confidence_", getParams(object, "weight_conf.int"))
+  #   file_name = paste0("confidence_", conf.int)
+  # }
+  # if(method == "quantile"){
+  #   # file_name = paste0("quantile_", getParams(object, "weight_q_seq"))
+  #   file_name = paste0("quantile_", q_seq)
+  # }
   if(method == "top_ratio"){
     # file_name = paste0("top_ratio_", getParams(object, "weight_top_ratio"))
     file_name = paste0("top_ratio_", top_ratio)
@@ -610,6 +610,50 @@ WeightGeneFilter<- function(object,
   return(object)
 }
 
+#' GetWeightGene
+#'
+#' @param track track object
+#' @param iter_range
+#' @param confidence
+#' @param conf.int
+#' @param q_seq
+#'
+#' @export
+#'
+GetWeightGene <- function(object,
+                          method = c("weight_cut","top_ratio","top_number"),
+                          trajectory){
+
+  track = getTrack(object)
+
+  # conf.int = getParams(object, "weight_conf.int")
+  # confidence = getParams(object, "weight_confidence")
+  # q_seq = getParams(object, "weight_q_seq")
+  # top_ratio = getParams(object, "weight_top_ratio")
+
+  iter_range = getParams(object, "weight_iter_range")
+  index = paste0("iter_", iter_range[1], "_", iter_range[2])
+  t = track@gene_weight[[index]]
+
+  # if(method == "confidence"){
+  #   index2 = paste0("confidence_", getParams(object, "weight_conf.int"))
+  # }
+  # if(method == "quantile"){
+  #   index2 = paste0("quantile_", getParams(object, "weight_q_seq"))
+  # }
+  if(method == "top_ratio"){
+    index2 = paste0("top_ratio_",getParams(object, "weight_top_ratio"))
+  }
+  if(method == "top_number"){
+    index2 = paste0("top_number_",getParams(object, "weight_top_number"))
+  }
+  if(method == "weight_cut"){
+    index2 = paste0("weight_cut_",getParams(object, "weight_cut"))
+  }
+  genes = t[[index2]][[trajectory]]
+  return(genes)
+}
+
 #' GetGeneWeight
 #' @description Obtain gene weights for each trajectory
 #' @param object MGPfact object
@@ -629,172 +673,201 @@ GetGeneWeight <- function(object){
   return(w)
 }
 
-# --------------
 
 #' TrajPlot
 #' @description
-#' @param track_df
+#' smooth trajectory visualization
+#' @param track_df dataframe for plot smooth trajectory
 #' @param pointColorValue
-#' @param indexL
-#' @param col
-#' @param c
-#' @param w
-#' @param tb
-#' @param rug
-#' @param lm
-#'
+#' @param indexL trajectory index
+#' @param title plot title
+#' @param g_title
+#' @param col the colors of different branches
+#' @param c branching column
+#' @param w trajectory score column
+#' @param tb logical value, whether label bifurcation line
+#' @param tb_pred bifurcation point
+#' @param pointSize point size
+#' @param pointAlpha point alpha
+#' @param pointLabel logical value, whether label point
+#' @param pointLabelsize label size
+#' @param rug logical value, whether to plot rug
+#' @param rugAlpha rug alpha
+#' @param legend locical value, whether to add legend
+#' @param legend_title legend title
+#' @param lm whether add lm line
+#' @param lineMethod linear model methods
+#' @param lineType line type
+#' @param lineSize line size
+#' @param lineAlpha line alpha
+
 #' @export
 #'
-# TrajPlot <- function(track_sdf = NULL,
-#                      pointColorValue = NULL,
-#                      indexL = 1,
-#                      title = T,
-#                      g_title = NULL,
-#                      col = NULL,
-#                      c = NULL,
-#                      w = NULL,
-#                      tb = TRUE,
-#                      tb_pred = NULL,
-#                      pointSize = 4,
-#                      pointAlpha = 0.4,
-#                      pointLabel = FALSE,
-#                      pointLabelsize = 3,
-#                      rug = TRUE,
-#                      rugAlpha = 0.3,
-#                      legend = FALSE,
-#                      legend_title = "Bif",
-#                      lm = TRUE,
-#                      lineMethod = loess,
-#                      lineType = "solid",
-#                      lineSize = 1,
-#                      lineAlpha = 0.3,
-#                      se = F,
-#                      span = 0.75,
-#                      formula = y~x,
-#                      family = NULL,
-#                      vlineType = "dashed",
-#                      ...){
-#
-#   require(ggplot2)
-#   require(cowplot)
-#   require(ggsci)
-#
-#   l = indexL
-#   df = track_sdf
-#   t = "T"
-#   df[,paste0(c,"_1")] = as.factor(df[,paste0(c,"_1")])
-#   df[,paste0(c,"_2")] = as.factor(df[,paste0(c,"_2")])
-#   df[,c] = as.factor(df[,c])
-#
-#   if(is.null(col)){
-#     col = c
-#   }
-#   if(is.null(pointColorValue)){
-#     if(col==c){
-#       pointColorValue = colorRampPalette(pal_d3("category10")(10))(10)[c(8,1,4)]
-#       names(pointColorValue) = c(0,1,2)
-#     } else{
-#       pointColorValue = colorRampPalette(pal_d3("category20")(20))(20)
-#     }
-#   }
-#
-#   p = ggplot(df) +
-#     geom_point(alpha = pointAlpha, size = pointSize,
-#                # aes(x = get(t), y = get(w), colour = factor(get(col)))
-#                aes_string(x = t, y = w, colour = col ))
-#
-#   # whether tb
-#   if(tb){
-#     p = p +
-#       geom_vline(xintercept = tb_pred, colour = "#990000", linetype = "dashed")
-#   }
-#
-#   # rug
-#   if(rug){
-#     p = p +
-#       geom_rug(alpha = rugAlpha,
-#                aes_string(x = t, y = paste0(w,"_1"), colour = paste0(c,"_1")) ) +
-#       geom_rug(alpha = rugAlpha,
-#                aes_string(x = t, y = paste0(w,"_2"), colour = paste0(c,"_2")) )
-#   }
-#
-#   # loess
-#   if(lm){
-#     p = p +
-#       geom_line( stat = "smooth",
-#                  aes_string(x = t, y = paste0(w,"_1"), colour = paste0(c,"_1")),
-#                  na.rm = TRUE,
-#                  method = lineMethod,
-#                  linetype = lineType,
-#                  size = lineSize,
-#                  alpha = lineAlpha,
-#                  se = se,
-#                  span = span,
-#                  family = family,
-#                  formula = formula) +
-#       geom_line( stat = "smooth",
-#                  aes_string(x = t, y = paste0(w,"_2"), colour = paste0(c,"_2")),
-#                  na.rm = TRUE,
-#                  method = lineMethod,
-#                  linetype = lineType,
-#                  size = lineSize,
-#                  alpha = lineAlpha,
-#                  se = se,
-#                  span = span,
-#                  family = family,
-#                  formula = formula)
-#
-#   }
-#
-#   # label
-#   if(pointLabel){
-#     p <- p +
-#       geom_text(aes_string(x = t, y = w, label = "names"),
-#                 color = "black",
-#                 size = pointLabelsize)
-#   }
-#
-#   # final
-#   if(!title){
-#     p = p +
-#       scale_colour_manual(values = pointColorValue) +
-#       labs(title = paste0(" "), x = "PseudoT", y = "Score", color = legend_title) +
-#       rj.ftheme
-#   }else{
-#     if(is.null(g_title)){
-#       p = p +
-#         scale_colour_manual(values = pointColorValue, drop = F) +
-#         labs(title = paste0("Trajectory ",l), x = "PseudoT", y = "Score", color = legend_title) +
-#         rj.ftheme
-#     }else {
-#       p = p +
-#         scale_colour_manual(values = pointColorValue) +
-#         labs(title = paste0(g_title," in trajectory ",l), x = "PseudoT", y = "Score", color = legend_title) +
-#         rj.ftheme
-#     }
-#   }
-#
-#   # legend
-#   if(!legend){
-#     p = p + guides(colour = "none")
-#   }
-#
-#   return(p)
-# }
+TrajPlot <- function(track_sdf = NULL,
+                     pointColorValue = NULL,
+                     indexL = 1,
+                     title = T,
+                     g_title = NULL,
+                     col = NULL,
+                     c = NULL,
+                     w = NULL,
+                     tb = TRUE,
+                     tb_pred = NULL,
+                     pointSize = 4,
+                     pointAlpha = 0.4,
+                     pointLabel = FALSE,
+                     pointLabelsize = 3,
+                     rug = TRUE,
+                     rugAlpha = 0.3,
+                     legend = FALSE,
+                     legend_title = "Bif",
+                     lm = TRUE,
+                     lineMethod = loess,
+                     lineType = "solid",
+                     lineSize = 1,
+                     lineAlpha = 0.3,
+                     se = F,
+                     span = 0.75,
+                     formula = y~x,
+                     family = NULL,
+                     vlineType = "dashed",
+                     ...){
+
+  l = indexL
+  df = track_sdf
+  t = "T"
+  df[,paste0(c,"_1")] = as.factor(df[,paste0(c,"_1")])
+  df[,paste0(c,"_2")] = as.factor(df[,paste0(c,"_2")])
+  df[,c] = as.factor(df[,c])
+
+  if(is.null(col)){
+    col = c
+  }
+  if(is.null(pointColorValue)){
+    if(col==c){
+      pointColorValue = colorRampPalette(pal_d3("category10")(10))(10)[c(8,1,4)]
+      names(pointColorValue) = c(0,1,2)
+    } else{
+      pointColorValue = colorRampPalette(pal_d3("category20")(20))(20)
+    }
+  }
+
+  p = ggplot(df) +
+    geom_point(alpha = pointAlpha, size = pointSize,
+               # aes(x = get(t), y = get(w), colour = factor(get(col)))
+               aes_string(x = t, y = w, colour = col ))
+
+  # whether tb
+  if(tb){
+    p = p +
+      geom_vline(xintercept = tb_pred, colour = "#990000", linetype = "dashed")
+  }
+
+  # rug
+  if(rug){
+    p = p +
+      geom_rug(alpha = rugAlpha,
+               aes_string(x = t, y = paste0(w,"_1"), colour = paste0(c,"_1")) ) +
+      geom_rug(alpha = rugAlpha,
+               aes_string(x = t, y = paste0(w,"_2"), colour = paste0(c,"_2")) )
+  }
+
+  # loess
+  if(lm){
+    p = p +
+      geom_line( stat = "smooth",
+                 aes_string(x = t, y = paste0(w,"_1"), colour = paste0(c,"_1")),
+                 na.rm = TRUE,
+                 method = lineMethod,
+                 linetype = lineType,
+                 size = lineSize,
+                 alpha = lineAlpha,
+                 se = se,
+                 span = span,
+                 family = family,
+                 formula = formula) +
+      geom_line( stat = "smooth",
+                 aes_string(x = t, y = paste0(w,"_2"), colour = paste0(c,"_2")),
+                 na.rm = TRUE,
+                 method = lineMethod,
+                 linetype = lineType,
+                 size = lineSize,
+                 alpha = lineAlpha,
+                 se = se,
+                 span = span,
+                 family = family,
+                 formula = formula)
+
+  }
+
+  # label
+  if(pointLabel){
+    p <- p +
+      geom_text(aes_string(x = t, y = w, label = "names"),
+                color = "black",
+                size = pointLabelsize)
+  }
+
+  # final
+  if(!title){
+    p = p +
+      scale_colour_manual(values = pointColorValue) +
+      labs(title = paste0(" "), x = "PseudoT", y = "Score", color = legend_title) +
+      rj.ftheme
+  }else{
+    if(is.null(g_title)){
+      p = p +
+        scale_colour_manual(values = pointColorValue, drop = F) +
+        labs(title = paste0("Trajectory ",l), x = "PseudoT", y = "Score", color = legend_title) +
+        rj.ftheme
+    }else {
+      p = p +
+        scale_colour_manual(values = pointColorValue) +
+        labs(title = paste0(g_title," in trajectory ",l), x = "PseudoT", y = "Score", color = legend_title) +
+        rj.ftheme
+    }
+  }
+
+  # legend
+  if(!legend){
+    p = p + guides(colour = "none")
+  }
+
+  return(p)
+}
+
+
+# --------------
 
 #' TrajGenePlot
 #'
-#' @Arguments
-#' @param track_df
-#' @param pointColorValue
-#' @param indexL
-#' @param col
-#' @param c
-#' @param w
-#' @param tb
-#' @param rug
-#' @param lm
+#' @description
+#' The expression trend of any gene on a smooth trajectory
 #'
+#' @param df dataframe contain plot information
+#' @param pointColorValue point color
+#' @param traj trajectory index
+#' @param gene gene name
+#' @param title plot title
+#' @param g_title
+#' @param col the colors of different branches
+#' @param c branching column
+#' @param w trajectory score column
+#' @param tb logical value, whether label bifurcation line
+#' @param tb_pred bifurcation point
+#' @param pointSize point size
+#' @param pointAlpha point alpha
+#' @param pointLabel logical value, whether label point
+#' @param pointLabelsize label size
+#' @param rug logical value, whether to plot rug
+#' @param rugAlpha rug alpha
+#' @param legend locical value, whether to add legend
+#' @param legend_title legend title
+#' @param lm whether add lm line
+#' @param lineMethod linear model methods
+#' @param lineType line type
+#' @param lineSize line size
+#' @param lineAlpha line alpha
 #' @export
 #'
 # TrajGenePlot <- function(df = NULL,

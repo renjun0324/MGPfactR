@@ -7,7 +7,7 @@
 WeightGeneFilter(
   object,
   iter_range = NULL,
-  method = c("top_ratio", "quantile", "confidence", "top_number", "weight_cut"),
+  method = c("top_ratio", "top_number", "weight_cut"),
   conf.int = 0.95,
   q_seq = 0.25,
   top_ratio = 0.1,

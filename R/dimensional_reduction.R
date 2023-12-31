@@ -142,5 +142,6 @@ pcaMarchenkoPastur <- function(M, N, pca.sdev, factor = 2, do.print=T) {
       print(paste(length(which(pca.eigenvalue > marchenko.pastur.max)), "PCs have larger eigenvalues."))
     }
   }
+  pca.sig = which(pca.sig)
   return(pca.sig)
 }
