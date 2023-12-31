@@ -1,0 +1,207 @@
+---
+title: "quick start for MGPfact"
+output:
+  html_document:
+    theme: united
+    df_print: kable
+  pdf_document: default
+date: 'Compiled: `r Sys.Date()`'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  tidy = TRUE,
+  tidy.opts = list(width.cutoff = 95),
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 10,
+  time_it = TRUE,
+  error = TRUE
+)
+```
+
+In this vignette, we demonstrate how to perform trajectory reconstruction using MGPfact.
+
+* Performed MURP downsampling of the preprocessed scRNA-seq data.
+* Decomposable cellular trajectories
+* Streamlined trajectory
+* Differentially expressed genes
+
+Prior to running this vignette, please [install MGPfactR and MGPfact.jl](https://github.com/renjun0324/MGPfactR).
+
+```{r, warning=F, message=F,eval=FALSE}
+library(MGPfactR)
+julia_home = gsub("/julia$", "", system("which julia", intern = TRUE))
+```
+
+### Create MGPfact Object     
+```{r, warning=F, message=F,eval=FALSE}
+
+# load test datasets
+data(fibroblast_reprogramming_treutlein)
+data = fibroblast_reprogramming_treutlein
+counts = data$counts
+cell_info = data$cell_info
+rownames(cell_info) = cell_info$cell_id
+
+# normalize data
+expression = LogNormalize(t(counts)) %>% t
+
+# create object
+ct <- CreateMGPfactObject(count_matrix = counts, 
+                          data_matrix = expression, 
+                          MetaData = cell_info,  
+                          datasetTitle = "test")
+
+# dimensionality reduction
+ct <- RUNPCA(ct, center = T, scale = T) ## 用scaled-data，center不需要TRUE
+ct <- RUNUMAP(ct, npc = pca.num)
+```
+
+### MURP downsampling
+```{r, warning=F, message=F,eval=FALSE}
+
+# MURP downsampling
+ct = MURPDownsampling(ct, omega = 0.9, iter = 10, seed = 723, fast = T, cores = 1,
+                      pca.center = FALSE, pca.scale = FALSE, plot = T, max_murp = 20)
+
+ct = GetMURPMapLabel(ct, labels = "time_point")
+PlotLabelSplit(ct, labels = "time_point", width = 8)
+PlotLabelMerge(ct, labels = "time_point", width = NULL)
+
+# Initialize parameters
+SaveMURPDatToJulia(ct, murp_pc_number = 3)
+ind = which(names(ct@MURP$Recommended_K_cl$cluster)=="1_iN2_C82")
+murp_start_id = as.vector(ct@MURP$Recommended_K_cl$cluster[ind])
+ct = SetSettings(ct, 
+                 murp_pc_number = 3, 
+                 trajectory_number = 3, 
+                 pse_optim_iterations = 100, 
+                 start_murp = murp_start_id)
+```
+
+### Trajectory Reconstruction
+```{r, warning=F, message=F,eval=FALSE}
+# 1. pse_optim
+ct = RunningmodMGPpseudoT(ct, julia_home = julia_home, cores = 1)
+
+# 2. pseudotime analysis
+ct <- GetIterCor(object = ct, iteration_list = list(c(1,getParams(ct,"pse_optim_iterations"))))
+param_meanvalue <- GetAllParamMeanChain(object = ct, aspect = "pse", 
+                                        iter_range = c(getParams(ct,"pse_optim_iterations"), 
+                                                       getParams(ct,"pse_optim_iterations")))
+ct <- GetPredT(object = ct, chains = 1:getParams(ct, "chains_number"), adjust = F, filter_chain = F, mean_th = 0)
+ct <- GetPseSdf(ct, unified_direction = FALSE, rm_adjust_chain = TRUE, param_meanvalue = param_meanvalue)
+ct@OptimResult$pse@t_pred$keep_chain
+
+# 4. tree
+ct <- GetBinTree(object = ct)
+ct <- GetTbTree(object = ct)
+ct <- GetTbTreeAllpoint(object = ct, save = T, labels = getParams(ct,"label"))
+
+PlotBinBif(ct, plot_label = TRUE)
+PlotPieBinLabel(ct, labels = getParams(ct,"label"))
+PlotPieTbLabel(ct, labels = getParams(ct,"label"))
+PlotPieConsensusMainLabel(ct, labels = getParams(ct,"label"))
+PlotPieConsensusAllLabel(ct, labels = getParams(ct,"label"),size = 0.005)
+
+# 5. gp_curve
+ct = GetSigmaFromJulia(object = ct, load = F, julia_home = julia_home)
+
+# 6. save 
+save(ct, file = "ct.rda")
+writeSettings(ct)
+```
+
+### Trajectory Rotation
+
+```{r, warning=F, message=F,eval=FALSE}
+#  1. track optim
+ct = RunningmodMGPtrack(object = ct, iter = 20, cores = 1)
+
+#  2. track plot
+iter_range = c(getParams(ct,"track_optim_iterations"), getParams(ct,"track_optim_iterations"))
+ct = GetTrackSdfFromOptim(object = ct, iter_range = iter_range)
+
+pointColorValue <- colorRampPalette(pal_d3("category10")(10))(10)[c(8,1,4)]
+names(pointColorValue) <- c(0,1,2)
+L = getParams(ct, "trajectory_number")
+track_sdf = GetMURPInfo(ct)
+
+plist <- lapply(1:L, function(l){ # plot branch label
+  tb = track_sdf[1,paste0("Tb_", l)]
+  c = paste0("C0_", l)
+  w = paste0("W_", l)
+  TrajPlot(track_sdf = track_sdf,
+           indexL = l,
+           col = c,
+           c = c,
+           w = w,
+           tb_pred = tb,
+           pointSize = 5,
+           pointAlpha = 0.4,
+           pointLabel = FALSE,
+           legend = TRUE,
+           lm = FALSE,
+           lineAlpha = 0,
+           rug = TRUE,
+           rugAlpha = 0.2)
+}) 
+p <- wrap_plots(plist, ncol = L, guides = "collect")
+ggsave(paste0("3_tracking/3.2_trajectory/2_t_w_mean_",iter_range[1], "_",iter_range[2],".pdf"), 
+       p, width = L*3.5, height = 3)
+
+for(lab in getParams(ct,"label")){ # celltype
+  cat(lab, "\n")
+  plist <- lapply(1:L, function(l){
+    tb = track_sdf[1,paste0("Tb_", l)]
+    c = paste0("C0_", l)
+    w = paste0("W_", l)
+    TrajPlot(track_sdf = track_sdf,
+             indexL = l,
+             pointColorValue = colorRampPalette(pal_d3()(20))(40),
+             pointAlpha = 0.4,
+             pointSize = 7,
+             col = lab,
+             c = c,
+             w = w,
+             tb_pred = tb,
+             legend = TRUE,
+             pointLabel = FALSE,
+             rug = FALSE,
+             lm = FALSE)
+  })
+  p <- wrap_plots(plist, ncol = L, guides = "collect")
+  ggsave(paste0("3_tracking/3.2_trajectory/3_t_w_mean_", lab, "_", iter_range[1], "_",iter_range[2],".pdf"), 
+         p, width = L*4, height = 3.5)
+}
+
+# 3. gene filter
+iter_range = getParams(ct, "weight_iter_range")
+ct = WeightGeneFilter(ct,iter_range = iter_range, method = "weight_cut", weight_cut = 0.03)
+gw = GetGeneWeight(ct)
+
+# 4. save 
+save(ct, file = "ct.rda")
+writeSettings(ct)
+```
+
+### Differential Genes
+
+```{r, warning=F, message=F,eval=FALSE}
+
+## 1. get model result
+ct = ComputeInteractionEffectGene(ct, save_mod = FALSE, adjust_method = "fdr")
+ct@BeautGene = ComputeSigGene(ct@BeautGene, "lm", "fdr", 0.05)
+
+## 3. write significant genes to txt
+WriteGene2TXT(ct@BeautGene, "lm", "bonferroni", "c", 0.05)
+
+```
+
+<details>
+  <summary>**Session Info**</summary>
+```{r, eval = TRUE}
+sessionInfo()
+```
+</details>

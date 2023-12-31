@@ -50,15 +50,50 @@ julia_setup(JULIA_HOME=julia_home)
 ```
 
 ## quick start
-
+For the detailed usage process of MGPfact, please click [here]()
 ```r
 data(fibroblast_reprogramming_treutlein)
 data = fibroblast_reprogramming_treutlein
 counts = data$counts
 cell_info = data$cell_info
 rownames(cell_info) = cell_info$cell_id
+
+expression = LogNormalize(t(counts)) %>% t
+
+# create object
+ct <- CreateMGPfactObject(data_matrix = expression, MetaData = cell_info)
+
+# downsampling
+ct = MURPDownsampling(ct, omega = 0.9, iter = 10, seed = 723, fast = T, cores = 1,
+                      pca.center = FALSE, pca.scale = FALSE, plot = T, max_murp = 20)
+ct = GetMURPMapLabel(ct, labels = "time_point")
+
+# initialize parameters
+SaveMURPDatToJulia(ct, murp_pc_number = 3)
+ct = SetSettings(ct, murp_pc_number = 3, trajectory_number = 3, pse_optim_iterations = 100, start_murp = 999)
+
+# forcast pseudotime
+ct = RunningmodMGPpseudoT(ct, julia_home = julia_home, cores = 1)
+
+# trahectory construction
+ct <- GetIterCor(object = ct, iteration_list = list(c(1,getParams(ct,"pse_optim_iterations"))))
+param_meanvalue <- GetAllParamMeanChain(object = ct, aspect = "pse", 
+                                        iter_range = c(getParams(ct,"pse_optim_iterations"), 
+                                                       getParams(ct,"pse_optim_iterations")))
+ct <- GetPredT(object = ct, chains = 1:getParams(ct, "chains_number"), adjust = F, filter_chain = F, mean_th = 0)
+ct <- GetPseSdf(ct, unified_direction = FALSE, rm_adjust_chain = TRUE, param_meanvalue = param_meanvalue)
+ct <- GetBinTree(object = ct)
+ct <- GetTbTree(object = ct)
+ct <- GetTbTreeAllpoint(object = ct, save = T, labels = getParams(ct,"label"))
+PlotPieBinLabel(ct, labels = getParams(ct,"label"))
+PlotPieTbLabel(ct, labels = getParams(ct,"label"))
+PlotPieConsensusMainLabel(ct, labels = getParams(ct,"label"))
+PlotPieConsensusAllLabel(ct, labels = getParams(ct,"label"),size = 0.005)
+
 ```
 
-### (1) 
+
+
+
 
 
