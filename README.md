@@ -50,7 +50,7 @@ julia_setup(JULIA_HOME=julia_home)
 ```
 
 ## quick start
-For the detailed usage process of MGPfact, please click [here]()
+For the detailed usage process of MGPfact, please click [here](https://github.com/renjun0324/MGPfactR/blob/master/vignettes/workflow.Rmd)
 ```r
 data(fibroblast_reprogramming_treutlein)
 data = fibroblast_reprogramming_treutlein
