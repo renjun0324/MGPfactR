@@ -1,6 +1,6 @@
 Package: MGPfactR
 Title: MGPfactR (One Line, Title Case)
-Version: 0.2.0
+Version: 0.3.0
 Date: 2023-12-25
 Authors@R: person(family = "RenJun",
            role = c("aut", "cre"),
