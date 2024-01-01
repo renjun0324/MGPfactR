@@ -370,6 +370,7 @@ CreateMGPfactObject <- function(data_matrix = NULL,
   }
   setwd(dir)
   Initialize()
+  cat("Create MGPfact Object in ", dir, "\n")
 
   # check count_matrix and data_matrix
   if(missing(x = data_matrix)){
@@ -398,7 +399,7 @@ CreateMGPfactObject <- function(data_matrix = NULL,
       MetaData <- MetaData[intersect(x = rownames(x = MetaData), y = rownames(x = data_matrix)), , drop = FALSE]
     }
     if (is.data.frame(x = MetaData)) {
-      save(MetaData, file = "~/x.rda")
+      # save(MetaData, file = "~/x.rda")
       new.MetaData <- data.frame(row.names = rownames(x = data_matrix))
       for (ii in 1:ncol(MetaData)) {
         # cat(ii, "\n")
@@ -656,11 +657,11 @@ setMethod("show", "PseOptimResult",
 #' @export
 setMethod("show", "TrackOptimResult",
           function(object) {
-            P = getParams(object,"murp_number")
-            L = 3
+            # P = getParams(object,"murp_number")
+            # L = 3
             cat("An object of class ", class(object), "\n", sep = "")
-            cat("Trajectory optimization results with", P, "MURPs \n")
-            cat("Trajectory Number: ", L, "\n")
+            # cat("Trajectory optimization results with", P, "MURPs \n")
+            # cat("Trajectory Number: ", L, "\n")
             cat("Iterations: ",object@iter," \n")
             invisible(NULL)
           }

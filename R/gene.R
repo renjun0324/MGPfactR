@@ -140,14 +140,19 @@ GetGeneCurve <- function(object,
     object=GetCurveSdf(object)
     ssdf = object@GPR$curve_sdf
   }
-  plot_gene_df <- data.frame(ssdf,
-                             curve_gene_expr_list[[1]] %>% t,
-                             curve_gene_expr_list[[2]] %>% t,
-                             curve_gene_expr_list[[3]] %>% t)
-  colnames(plot_gene_df) <- c(colnames(ssdf),
-                              paste0("L1_", rownames(curve_gene_expr_list[[1]])),
-                              paste0("L2_", rownames(curve_gene_expr_list[[2]])),
-                              paste0("L3_", rownames(curve_gene_expr_list[[3]])))
+
+  plot_gene_df_list <- list(ssdf)
+  for (i in 1:L) {
+    plot_gene_df_list[[i + 1]] <- curve_gene_expr_list[[i]] %>% t
+  }
+  plot_gene_df <- do.call(cbind, plot_gene_df_list)
+
+  colnames_list <- list(colnames(ssdf))  # 开始构建列名列表
+  for (i in 1:L) {
+    colnames_list[[i + 1]] <- paste0("L", i, "_", rownames(curve_gene_expr_list[[i]]))
+  }
+  colnames(plot_gene_df) <- unlist(colnames_list)
+
   object@GPR$curve_sdf = plot_gene_df
   save(plot_gene_df, file = paste0("2_pseudotime/2.4_cov_matrix/plot_gene_df.rda"))
 
@@ -208,177 +213,237 @@ GetCurveSdf <- function(object){
 #
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-#' GeneExprMURP
-#'
-#' @description
-#' Obtain the expression vector of a gene in MURP
-#' @param gene any gene
-#' @param murp murp result
-#' @param expr expression matrix
-#' @param methods mean/sum expression
-#' @export
-#'
-GeneExprMURP <- function(gene = NULL,
-                         expr = NULL,
-                         murp = NULL,
-                         methods = NULL){
-
-  if(!(gene %in% rownames(expr))){
-    stop(gene, " not found in expr")
-  }
-  if(!(methods %in% c("mean","sum"))){
-    stop("wrong methods")
-  }
-  if(is.null(methods)){
-    methods = "sum"
-  }
-
-  if(length(gene)==1){
-    value = tapply(1:ncol(expr),
-                   as.factor(murp$Recommended_K_cl$cluster),
-                   function(x, y){
-                     if(methods=="sum"){
-                       sum(expr[gene,x])
-                     }else{
-                       mean(expr[gene,x])
-                     }
-                   })
-  }else{
-    tmp = tapply(1:ncol(expr),
-                 as.factor(murp$Recommended_K_cl$cluster),
-                 function(x, y){
-                   if(methods=="sum"){
-                     # sum(count[gene,x])
-                     apply(expr[gene,x], 1, sum)
-                   }else{
-                     apply(expr[gene,x], 1, mean)
-                   }
-                 })
-    value = do.call(rbind, tmp)
-  }
-
-  return(value)
-}
-
-#' GeneBar
-#'
-#' @description
-#' Bar plot of gene expression in different branches.
-#' @param object MGPfact object
-#' @param gene any gene
-#' @param murp murp result
-#' @param group group name
-#' @param exprs expression matrix
-#' @param expr_method mean/sum expression
-#' @param barcolor color of bar
-#' @param errorbar logical value, whether to add errorbar
-#' @export
-GeneBar <- function(object,
-                    gene = NULL,
-                    group = NULL,
-                    exprs = NULL,
-                    murp = NULL,
-                    expr_method = "mean",
-                    barcolor = colorRampPalette(pal_rickandmorty()(12))(12),
-                    errorbar = FALSE){
-
-  expr = GeneExprMURP(gene = gene,
-                      expr = exprs,
-                      murp = object@MURP,
-                      methods = expr_method)
-
-  cdf <- data.frame(group, expr)
-  gdf1 <- cdf %>% select("expr", "group") %>% group_by(group ) %>%
-    summarise( mean(expr), sum(expr)) %>%  `colnames<-`(c("group", "mean", "sum")) %>% data.frame
-  gdf2 <- cdf %>% select("expr", "group") %>% group_by(group ) %>%
-    summarySE(measurevar = "expr", groupvars = "group") %>%  data.frame
-
-  gdf <- merge(gdf1, gdf2, by = "group")
-  gdf[,"group"] <- factor(gdf[,"group"], levels = c(0,1,2))
-
-  p = ggplot(gdf, aes_string(x = "group", y = expr_method, fill = "group")) +
-    geom_bar(stat = "identity") +
-    scale_fill_manual(values = barcolor) +
-    guides(fill = "none") +
-    rj.ftheme
-
-  if(expr_method == "mean"){
-    p = p +
-      labs(x = "", y = "Mean Expression",
-           fill = "Group", title = gene)
-  }
-
-  if(expr_method == "sum"){
-    p = p +
-      labs(x = "", y = "Total Expression",
-           fill = "Group", title = gene)
-  }
-
-  if(errorbar){
-    p = p +
-      geom_errorbar(aes(ymin = get(expr_method) - .data$ci, ymax = get(expr_method) + .data$ci),
-                    width = .1, position = position_dodge(.5))
-  }
-
-  return(p)
-}
-
-#' GeneVln
+#' GeneBoxPhase
 #'
 #' @description
 #' violin plot of gene expression in different branches.
-#' @param expr expression matrix including several genes
-#' @param group group name
-#' @param title plot title
-#' @param ylab Y-axis title
-#' @param vlncolor color of violin
-#' @param errorbar logical value, whether to add errorbar
-#' @param max_y  Y-axis maximum value.
-#' @param pvalue logical value, whether to add pvalue label
+#' @param object mgpfact object
+#' @param gene gene name
+#' @param aspect murp / cell
+#' @param zscore logical value, whether to zscore
+#' @param test_method t.test / wilcox.test
+#' @param save logical value, whether to save pdf
 #' @export
-GeneVln <- function(expr = NULL,
-                    group = NULL,
-                    title = "x",
-                    ylab = NULL,
-                    vlncolor = colorRampPalette(pal_rickandmorty()(12))(12),
-                    errorbar = FALSE,
-                    max_y = 3,
-                    pvalue = TRUE){
+GeneBoxPhase <- function(object,
+                         gene = NULL,
+                         aspect = "cell",
+                         zscore = TRUE,
+                         test_method = "t.test",
+                         save = TRUE){
 
-  if(is.null(ylab)){ ylab = "Expr"}
-  gdf = data.frame(group = group, expr = expr)
-  gdf$group = factor(gdf$group, levels = c(0,1,2))
-
-  p = ggplot(gdf,aes(x = factor(group,levels = 0:2), y = expr, group = group)) +
-    geom_jitter(aes(colour = group), alpha = 0.05) +
-    geom_violin(aes(fill = group), alpha = 0.7) +
-    geom_boxplot(width = 0.08) +
-    scale_colour_manual(values = vlncolor, drop = F) +
-    scale_fill_manual(values = vlncolor, drop = F) +
-    scale_x_discrete(breaks = c(0:2), labels = paste0("Phase ",0:2)) +
-    scale_y_continuous(limits = c(min(expr), max(expr) + max_y)) +
-    labs(x = NULL, y = ylab, fill = "Group", title = title) +
-    guides(colour = "none", fill = "none") +
-    rj.ftheme
-
-  if(pvalue){
-    if(length(unique(group))==2){
-      p = p +
-        stat_compare_means(comparisons = list(c("1","2")),
-                           method = "wilcox.test", label = "p.signif",hide.ns = T)
-    }else{
-      p = p +
-        stat_compare_means(comparisons = list(c("1","2"),c("0","1"),c("0","2")),
-                           method = "wilcox.test", label = "p.signif",hide.ns = T)
+  ## extract data and group
+  if(aspect=="cell"){
+    dat = object@assay$data_matrix[,gene,drop=F]
+    ctag = paste0("C0_", 1:getParams(object,"trajectory_number"))
+    if(zscore){
+      for(ix in 1:ncol(dat)){
+        dat[,ix] = (dat[,ix]-mean(dat[,ix]))/sd(dat[,ix])
+      }
     }
+    df = cbind(object@MetaData[,c("T",ctag)],dat)
+  }else{
+    dat = object@MURP$Recommended_K_cl$centers[,gene,drop=F]
+    ctag = paste0("C0_", 1:getParams(object,"trajectory_number"))
+    if(zscore){
+      for(ix in 1:ncol(dat)){
+        dat[,ix] = (dat[,ix]-mean(dat[,ix]))/sd(dat[,ix])
+      }
+    }
+    df = cbind(object@MURP$murp_cellinfo[,c("T",ctag)],dat)
   }
 
-  if(errorbar){
-    p = p +
-      stat_summary(fun.data="mean_sdl", fun.args = list(mult=1), geom="pointrange")
+  ## melt
+  dff = reshape2::melt(df, id.vars = c("T",ctag))
+  dff = reshape2::melt(dff, id.vars = c("T","variable","value"))
+  colnames(dff) = c("T","gene", "expr", "traj", "group")
+  dff$group = factor(dff$group, levels = c(0,1,2))
+  variable_lab = c("C0_1" = TeX(r'($Trajectory\ 1$)'),
+                   "C0_2" = TeX(r'($Trajectory\ 2$)'),
+                   "C0_3" = TeX(r'($Trajectory\ 3$)'))
+  levels(dff$traj) = variable_lab[levels(dff$traj)]
+
+
+  tmpp = dff
+  plist_all = list()
+  for(g in gene){
+
+    plist_gene = list()
+    df_gene = tmpp %>% filter(gene == g)
+    df_gene$gene = as.character(df_gene$gene)
+
+    for(ij in levels(dff$traj)){
+      cat(ij, "\n")
+      dff = df_gene %>% dplyr::filter(traj==ij)
+
+      ## 计算显著性
+      pl = c(0,1,2)
+      plc = combn(1:length(pl),2)
+      mc = lapply(1:ncol(plc), function(i) pl[plc[,i]] %>% as.character )
+      annotations <- sapply(mc, function(pair) {
+        group1 <- pair[1]
+        group2 <- pair[2]
+        df = df_gene %>% filter(group %in% c(group1, group2))
+        tryCatch({
+          df$group = factor(as.character(df$group), levels = c(group1, group2))
+
+          if(test_method == "t.test"){
+            result = t.test(expr ~ group, data = df)
+            pval = pval_lab(result$p.value)
+          }
+          if(test_method == "wilcox.test"){
+            result = wilcox.test(expr ~ group, data = df)
+            pval = pval_lab(result$p.value)
+          }
+          # result = summary(aov(expr~group, df))
+          # pval_lab(result[[1]][[5]][1])
+
+        }, error = function(e){
+          paste0(" ")
+        })
+        return(pval)
+      })
+      mxx = df_gene %>% dplyr::select(expr) %>% max
+      annotation_df = data.frame( gene = rep(g, 3),
+                                  traj = rep(ij, 3),
+                                  label = annotations,
+                                  do.call(rbind, mc),
+                                  y_position = seq(4, length.out = 3, by = 0.7))   # celltype2
+
+      ## 画图
+      ggplot(dff, aes(x = group, y = expr)) +
+        geom_boxplot(aes(fill = group), width = 0.35, outlier.shape = NA, outlier.size = 0.01, na.rm=TRUE, size = 0.05) +
+        labs(color = "", x = "", y = "Expression") +
+        facet_wrap( ~ traj + gene , scales = "free", labeller = label_parsed) +
+
+        scale_x_discrete(limits = c("0","1","2"),
+                         breaks = c("0","1","2"),
+                         labels = c("Phase 0","Phase 1","Phase 2")) +
+
+        # scale_y_continuous(limits = c(min(xdf$expr), max(xdf$expr)+1) ) +
+        scale_y_continuous(limits = c(-1, 5) ) +
+        scale_fill_manual(values = c("0" = "#7F7F7F","1" = "#374e55ff", "2" = "#df8f44ff") ) +
+
+        guides(fill = "none", color = "none") +
+
+        geom_signif( data = annotation_df,
+                     aes(xmin = X1, xmax = X2, annotations = TeX(label, output = "character"),
+                         y_position = y_position-1),
+                     tip_length = 0,
+                     size = 0.1,
+                     textsize = 5,
+                     vjust = -0.1,
+                     linetype = "dashed",
+                     test = wilcox.test,
+                     manual = TRUE,
+                     parse = TRUE) +
+
+        theme(panel.background = element_rect(fill='transparent', color="black", size = 0.2),
+              strip.text = element_text(size = 13),
+              strip.background = element_rect(colour = "black", fill = "transparent", size = 0.25),
+              panel.grid.minor=element_blank(),
+              panel.grid.major=element_blank(),
+              panel.border = element_rect(fill='transparent', color='black', size = 0.2),
+              plot.margin = unit(c(0.1,0.1,0.1,0.1), "cm"),
+              axis.ticks = element_blank(),
+              axis.title.x = element_text(vjust = -1.5, size = 13, colour = 'black'),
+              axis.title.y = element_text(vjust = 1.5, size = 13, colour = 'black'),
+              axis.text.y.left = element_text(vjust = 0, hjust = 1, size = 13, colour = 'black'),
+              axis.text.x = element_text(vjust = 1, hjust = 1, angle = 45, size = 13, colour = 'black'),
+              # axis.text.x = element_text(size = 3.7,colour = 'black'),
+              strip.text.x = element_text(margin = margin(0.05,0,0.05,0, "cm")),
+              strip.text.y = element_text(margin = margin(0,0.05,0,0.05, "cm"))) -> p
+      plist_gene = append(plist_gene, list(p))
+    }
+    pgene <- wrap_plots(plist_gene, ncol = getParams(object,"trajectory_number"))
+    plist_all = append(plist_all, list(pgene))
+  }
+  p <- wrap_plots(plist_all, ncol = 1)
+
+  if(save){
+    if(length(gene)>5){
+      genet = gene[1:5]
+    }else{
+      genet = gene
+    }
+    ggsave(paste0("4_differential_genes/gene_phase_", aspect,"_", test_method,"_",
+                  paste0(genet,collapse = "_"),".pdf"),
+           p, width = getParams(object,"trajectory_number")*2.7, height = 4*length(gene), limitsize = FALSE)
+  }else{
+    return(p)
   }
 
-  return(p)
+}
+
+#' GeneCurvePlot
+#'
+#' @description
+#' violin plot of gene expression in different branches.
+#' @param object mgpfact object
+#' @param gene gene name
+#' @param col color column
+#' @export
+GeneCurvePlot <- function(object,
+                          gene,
+                          col = NULL,
+                          pointSize = 5,
+                          pointAlpha = 0.2,
+                          lineSize = 2){
+
+
+  sdf = object@MURP$murp_cellinfo
+  ssdf = object@GPR$curve_sdf
+  curve_gene_expr_list = object@GPR$gene_expr
+  plot_gene_df = object@GPR$curve_sdf
+  d2_levels = unique(sdf[, col])
+  col_values = setNames(pal_d3("category20")(20)[seq_along(d2_levels)],d2_levels)
+
+  plist_all = list()
+  for(l in 1:getParams(object, "trajectory_number")){
+
+    tb = sdf[1,paste0("Tb_",l)]
+    lapply(gene, function(g){
+      cat(g, "\n")
+      df = data.frame(sdf, gene = ct@MURP$Recommended_K_cl$centers[,g])
+      gpr_df <- data.frame(plot_gene_df[,paste0("L",l,"_",g),drop=FALSE],
+                           T = ssdf$T,
+                           C = as.factor(ssdf[,paste0("C_",l)]) ) %>% melt(id = c("T","C"))
+      gpr_df$variable <- stringr::str_split_fixed(gpr_df$variable, "_", 2)[,2]
+      gpr_df1 <- gpr_df[which(gpr_df$C==1),]
+      gpr_df2 <- gpr_df[which(gpr_df$C==2),]
+      df[,paste0("C0_",l)] = factor(df[,paste0("C0_",l)])
+      ggplot() +
+        geom_vline(xintercept = tb, colour = "#990000", linetype = "dashed") +
+        geom_point(data = df, size = pointSize, alpha = pointAlpha, shape = 21,
+                   aes(x = .data$T, y = .data$gene, fill = get(col)), colour = "white" ) +
+        geom_smooth(data = gpr_df, aes(x =  .data$T, y = .data$value, colour = .data$C),
+                    linetype = "dashed", alpha = 1, size = lineSize,
+                    method = loess, formula = y ~ x, se = FALSE, na.rm = TRUE) +
+        scale_fill_manual(values = col_values,
+                          limits = as.character(d2_levels),
+                          breaks = as.character(d2_levels),
+                          labels = d2_levels,
+                          drop = FALSE ) +
+        scale_color_manual(values = c("1" = "#374e55ff", "2" = "#df8f44ff"),
+                           breaks = c("1", "2"),
+                           labels = c("Phase 0 -> 1", "Phase 0 -> 2"),
+                           guide = guide_legend(override.aes = list(width = 4))) +
+        guides(fill = guide_legend(override.aes=list(size=3, alpha = 1) )) +
+        labs(title = paste0(g, " Trajectory ", l), x = "Pseudotime", y = "Expression", color = NULL, fill = NULL) +
+        rj.ftheme +
+        theme(legend.text.align = 0)
+
+    }) -> plist
+    p = patchwork::wrap_plots(plist, ncol = length(gene), guides = "collect")
+    plist_all = append(plist_all, list(p))
+
+  }
+  pl = patchwork::wrap_plots(plist_all, nrow = getParams(object, "trajectory_number"), guides = "collect")
+  ggsave(paste0("4_differential_genes/1_exprT_GPRsmooth_", col, "_", paste(genes[1:5], collapse = "_"),".pdf"),
+         pl,
+         # width = 15 + max(strwidth(d2_levels, "inches")),
+         width = 13,
+         height = ceiling(length(genes)/4)*4*3, units = "in",
+         limitsize = FALSE)
 }
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -483,7 +548,7 @@ BeautAreaDrq <- function(df, mdf, g, cut_tb = FALSE,
     scale_x_continuous(limits = c(x_mi,1), expand = c(0,0)) +
     scale_y_discrete(expand = c(0.05, 0), position = "left",
                      labels=ggplot2:::parse_safe) +
-                     # labels=function(x) stringr::str_wrap(x, width=max_str)) +
+    # labels=function(x) stringr::str_wrap(x, width=max_str)) +
     scale_fill_manual(values = cols,
                       limits=levels(mdf$C), drop=TRUE) +
     theme(plot.margin = unit(c(0.5,0,0,0.2), "cm"),
@@ -505,6 +570,203 @@ BeautAreaDrq <- function(df, mdf, g, cut_tb = FALSE,
   return(p)
 }
 # -------------
+
+#' GeneExprMURP
+#'
+#' @description
+#' Obtain the expression vector of a gene in MURP
+#' @param gene any gene
+#' @param murp murp result
+#' @param expr expression matrix
+#' @param methods mean/sum expression
+#' @export
+#'
+# GeneExprMURP <- function(gene = NULL,
+#                          expr = NULL,
+#                          murp = NULL,
+#                          methods = NULL){
+#
+#   if(!(gene %in% rownames(expr))){
+#     stop(gene, " not found in expr")
+#   }
+#   if(!(methods %in% c("mean","sum"))){
+#     stop("wrong methods")
+#   }
+#   if(is.null(methods)){
+#     methods = "sum"
+#   }
+#
+#   if(length(gene)==1){
+#     value = tapply(1:ncol(expr),
+#                    as.factor(murp$Recommended_K_cl$cluster),
+#                    function(x, y){
+#                      if(methods=="sum"){
+#                        sum(expr[gene,x])
+#                      }else{
+#                        mean(expr[gene,x])
+#                      }
+#                    })
+#   }else{
+#     tmp = tapply(1:ncol(expr),
+#                  as.factor(murp$Recommended_K_cl$cluster),
+#                  function(x, y){
+#                    if(methods=="sum"){
+#                      # sum(count[gene,x])
+#                      apply(expr[gene,x], 1, sum)
+#                    }else{
+#                      apply(expr[gene,x], 1, mean)
+#                    }
+#                  })
+#     value = do.call(rbind, tmp)
+#   }
+#
+#   return(value)
+# }
+#' GeneVln
+#'
+#' @description
+#' violin plot of gene expression in different branches.
+#' @param object mgpfact object
+#' @param gene gene name
+#' @param aspect murp / cell
+#' @param title plot title
+#' @param y_lab Y-axis title
+#' @param vlncolor color of violin
+#' @param errorbar logical value, whether to add errorbar
+#' @param add_y  Increase the height based on the maximum value of the Y-axis
+#' @param pvalue logical value, whether to add pvalue label
+#' @param test_method test method
+#' @export
+# GeneVln <- function(object,
+#                     gene = NULL,
+#                     aspect = NULL,
+#                     title = NULL,
+#                     y_lab = NULL,
+#                     vlncolor = colorRampPalette(pal_rickandmorty()(12))(12),
+#                     errorbar = TRUE,
+#                     add_y = 3,
+#                     pvalue = TRUE,
+#                     save = TRUE,
+#                     test_method = "wilcox.test"){
+#
+#   if(is.null(y_lab)){ y_lab = "Expr"}
+#   if(is.null(title)){ title = gene}
+#   if(aspect=="cell"){
+#     expr = object@assay$data_matrix[,gene]
+#   }else{
+#     expr = object@MURP$Recommended_K_cl$centers[,gene]
+#   }
+#
+#   plist = list()
+#   for(traj in 1:getParams(object, "trajectory_number")){
+#     if(aspect=="cell"){
+#       group = object@MetaData[,paste0("C0_",traj)]
+#     }else{
+#       group = object@MURP$murp_cellinfo[,paste0("C0_",traj)]
+#     }
+#     gdf = data.frame(group = group, expr = expr)
+#     gdf$group = factor(gdf$group, levels = c(0,1,2))
+#
+#     p = ggplot(gdf,aes(x = group, y = expr, group = group)) +
+#       geom_jitter(aes(colour = group), alpha = 0.05) +
+#       geom_violin(aes(fill = group), alpha = 0.7) +
+#       geom_boxplot(width = 0.08) +
+#       scale_colour_manual(values = vlncolor, drop = F) +
+#       scale_fill_manual(values = vlncolor, drop = F) +
+#       scale_x_discrete(breaks = c(0:2), labels = paste0("Phase ",0:2)) +
+#       scale_y_continuous(limits = c(min(expr), max(expr) + add_y)) +
+#       labs(x = NULL, y = y_lab, fill = "Group", title = paste0(gene," Trajectory ", traj)) +
+#       guides(colour = "none", fill = "none") +
+#       rj.ftheme
+#
+#     if(pvalue){
+#       if(length(unique(group))==2){
+#         p = p +
+#           stat_compare_means(comparisons = list(c("1","2")),
+#                              method = test_method, label = "p.signif",hide.ns = TRUE)
+#       }else{
+#         p = p +
+#           stat_compare_means(comparisons = list(c("1","2"),c("0","1"),c("0","2")),
+#                              method = test_method, label = "p.signif",hide.ns = TRUE)
+#       }
+#     }
+#
+#     if(errorbar){
+#       p = p +
+#         stat_summary(fun.data="mean_sdl", fun.args = list(mult=1), geom="pointrange")
+#     }
+#     plist = append(plist, list(p))
+#   }
+#   p = wrap_plots(plist, ncol = getParams(object, "trajectory_number"))
+#   if(save){
+#     ggsave(paste0("4_differential_genes/gene_vln_", gene, ".pdf"), p, width = 10, height = 4)
+#   }else{
+#     return(p)
+#   }
+# }
+
+#' GeneBar
+#'
+#' @description
+#' Bar plot of gene expression in different branches.
+#' @param object MGPfact object
+#' @param gene any gene
+#' @param murp murp result
+#' @param group group name
+#' @param exprs expression matrix
+#' @param expr_method mean/sum expression
+#' @param barcolor color of bar
+#' @param errorbar logical value, whether to add errorbar
+#' @export
+# GeneBar <- function(object,
+#                     gene = NULL,
+#                     group = NULL,
+#                     exprs = NULL,
+#                     murp = NULL,
+#                     expr_method = "mean",
+#                     barcolor = colorRampPalette(pal_rickandmorty()(12))(12),
+#                     errorbar = FALSE){
+#
+#   expr = GeneExprMURP(gene = gene,
+#                       expr = exprs,
+#                       murp = object@MURP,
+#                       methods = expr_method)
+#
+#   cdf <- data.frame(group, expr)
+#   gdf1 <- cdf %>% select("expr", "group") %>% group_by(group ) %>%
+#     summarise( mean(expr), sum(expr)) %>%  `colnames<-`(c("group", "mean", "sum")) %>% data.frame
+#   gdf2 <- cdf %>% select("expr", "group") %>% group_by(group ) %>%
+#     summarySE(measurevar = "expr", groupvars = "group") %>%  data.frame
+#
+#   gdf <- merge(gdf1, gdf2, by = "group")
+#   gdf[,"group"] <- factor(gdf[,"group"], levels = c(0,1,2))
+#
+#   p = ggplot(gdf, aes_string(x = "group", y = expr_method, fill = "group")) +
+#     geom_bar(stat = "identity") +
+#     scale_fill_manual(values = barcolor) +
+#     guides(fill = "none") +
+#     rj.ftheme
+#
+#   if(expr_method == "mean"){
+#     p = p +
+#       labs(x = "", y = "Mean Expression",
+#            fill = "Group", title = gene)
+#   }
+#
+#   if(expr_method == "sum"){
+#     p = p +
+#       labs(x = "", y = "Total Expression",
+#            fill = "Group", title = gene)
+#   }
+#
+#   if(errorbar){
+#     p = p +
+#       geom_errorbar(aes(ymin = get(expr_method) - .data$ci, ymax = get(expr_method) + .data$ci),
+#                     width = .1, position = position_dodge(.5))
+#   }
+#
+#   return(p)
+# }
 #' #' GeneCurveHeatmap
 #' #'
 #' #' @description

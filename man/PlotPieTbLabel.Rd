@@ -4,7 +4,13 @@
 \alias{PlotPieTbLabel}
 \title{PlotPieTbLabel}
 \usage{
-PlotPieTbLabel(object, labels = NULL, size = 0.2, color = "black")
+PlotPieTbLabel(
+  object,
+  labels = NULL,
+  size = 0.2,
+  color = "black",
+  sub_width = 1
+)
 }
 \arguments{
 \item{object}{MGPfact object}
@@ -14,6 +20,8 @@ PlotPieTbLabel(object, labels = NULL, size = 0.2, color = "black")
 \item{size}{point size}
 
 \item{color}{Point outline color}
+
+\item{sub_width}{sub view width}
 }
 \description{
 Visualize cell property labels on the main path of the tb-tree,

@@ -205,10 +205,11 @@ PlotLabelSplit <- function(object = NULL,
 
   for(c in stag){
 
-    cat(c, "\n")
+    cat("Plot: ", c, "\n")
     a = paste0(c,1)
     b = paste0(c,2)
 
+    fat = ifelse(len==1, 5, 8)
     ### 1. all point
     plist <- lapply(labels, function(lab){
       ggplot(df, aes_string(x = a, y = b, colour = lab) ) +
@@ -218,7 +219,7 @@ PlotLabelSplit <- function(object = NULL,
         rj.ftheme
     })
     p <- wrap_plots(plist, ncol = 1)
-    ggplot2::ggsave(paste0(dir1, c,"_celltype.pdf"), p, width = width, height = ceiling(len/2)*8, limitsize = FALSE)
+    ggplot2::ggsave(paste0(dir1, c,"_celltype.pdf"), p, width = width, height = ceiling(len/2)*fat, limitsize = FALSE)
     # ggplot2::ggsave(paste0(dir1, c,"_celltype.png"), p, width = width, height = ceiling(len/2)*8, limitsize = FALSE)
 
     ### 2. murp
@@ -245,7 +246,7 @@ PlotLabelSplit <- function(object = NULL,
     })
     p <- wrap_plots(plist, ncol = 1)
     ggplot2::ggsave(paste0(dir1, c, "_murp_celltype.pdf"), p,
-                    width = width, height = ceiling(len/2)*8, limitsize = FALSE)
+                    width = width, height = ceiling(len/2)*fat, limitsize = FALSE)
     # ggplot2::ggsave(paste0(dir1, c, "_murp_celltype.png"), p, width = width, height = ceiling(len/2)*8, limitsize = FALSE)
 
     ### 3. label
@@ -264,7 +265,7 @@ PlotLabelSplit <- function(object = NULL,
     p <- wrap_plots(plist, ncol = 1)
     ggplot2::ggsave(paste0(dir1, c, "_murp_label.pdf"), p,
                     device = cairo_pdf,
-                    width = width, height = ceiling(len/2)*8, limitsize = FALSE)
+                    width = width, height = ceiling(len/2)*fat, limitsize = FALSE)
     # ggplot2::ggsave(paste0(dir1, c, "_murp_label.png"), p, width = width, height = ceiling(len/2)*8, limitsize = FALSE)
 
   }
@@ -326,10 +327,11 @@ PlotLabelMerge <- function(object = NULL,
   dir2 = "1_murp/reduction_merge/"
   dir.create(dir2)
 
+  ht = ifelse(length(stag)<3, 4, 8)
   ## 四个维度合并
   for(lab in labels){
 
-    cat(lab, "\n")
+    cat("Plot: ", lab, "\n")
     if(is.null(width)){
       d2_levels = unique(tmp[,lab])
       width = 9.5 + max(strwidth(d2_levels, "inches"))
@@ -346,7 +348,7 @@ PlotLabelMerge <- function(object = NULL,
         rj.ftheme
     })
     p <- wrap_plots(plist, ncol = 2, guides = "collect")
-    ggplot2::ggsave(paste0(dir2, "1_", lab,".pdf"), p, device = cairo_pdf, width = width, height = 8)
+    ggplot2::ggsave(paste0(dir2, "1_", lab,".pdf"), p, device = cairo_pdf, width = width, height = ht)
     # ggplot2::ggsave(paste0(dir2, "1_", lab,".png"), p, width = width, height = 8)
 
     ### 2. murp
@@ -377,7 +379,7 @@ PlotLabelMerge <- function(object = NULL,
         rj.ftheme
     })
     p <- wrap_plots(plist, ncol = 2, guides = "collect")
-    ggplot2::ggsave(paste0(dir2, "2_murp_", lab,".pdf"), p, device = cairo_pdf, width = width, height = 8)
+    ggplot2::ggsave(paste0(dir2, "2_murp_", lab,".pdf"), p, device = cairo_pdf, width = width, height = ht)
     # ggplot2::ggsave(paste0(dir2, "2_murp_", lab,".png"), p, width = width, height = 8)
 
     ### 3. murp_label
@@ -410,7 +412,7 @@ PlotLabelMerge <- function(object = NULL,
         rj.ftheme
     })
     p <- wrap_plots(plist, ncol = 2, guides = "collect")
-    ggplot2::ggsave(paste0(dir2, "2_murp_label_",lab,".pdf"), p, device = cairo_pdf, width = width, height = 8)
+    ggplot2::ggsave(paste0(dir2, "2_murp_label_",lab,".pdf"), p, device = cairo_pdf, width = width, height = ht)
     # ggplot2::ggsave(paste0(dir2, "2_murp_label_",lab,".png"), p, width = width, height = 8)
   }
 }

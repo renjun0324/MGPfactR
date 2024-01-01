@@ -196,7 +196,8 @@ GetTrackSdfFromOptim <- function(object = NULL,
                                  iter_range = NULL,
                                  save = TRUE){
 
-  if(is.null(iter_range)){ iter_range = getParams(object,"weight_iter_range") }
+  if(is.null(iter_range)){ iter_range = c(object@OptimResult$track@iter,
+                                          object@OptimResult$track@iter)}
   pse_sdf = GetMURPInfo(object)
   pse_sdf = pse_sdf[,1:which(colnames(pse_sdf)=="unified_direction")]
   L = getParams(object, "trajectory_number")
@@ -512,7 +513,7 @@ WeightGeneFilter<- function(object,
   df <- weight %>% data.frame
   colnames(df) <- paste0("L", 1:L)
   plist <- lapply(1:L, function(i){
-    cat(i, "\n")
+    # cat(i, "\n")
     c = paste0("L",i)
     w = weight[,i]
 
@@ -538,7 +539,7 @@ WeightGeneFilter<- function(object,
 
   ## PLOT: hist + CI
   plist <- lapply(1:L, function(i){
-    cat(i, "\n")
+    # cat(i, "\n")
     c = paste0("L",i)
     w = weight[,i]
 
@@ -612,11 +613,10 @@ WeightGeneFilter<- function(object,
 
 #' GetWeightGene
 #'
-#' @param track track object
-#' @param iter_range
-#' @param confidence
-#' @param conf.int
-#' @param q_seq
+#' @param object MGPfact object
+#' @param method filtering methods
+#' c("top_ratio","quantile","confidence","top_number","weight_cut")
+#' @param trajectory trajectory index
 #'
 #' @export
 #'
@@ -673,18 +673,50 @@ GetGeneWeight <- function(object){
   return(w)
 }
 
+#' WriteWeightGene
+#'
+#' @param object MGPfact object
+#' @param method filtering methods
+#' c("top_ratio","quantile","confidence","top_number","weight_cut")
+#' @export
+WriteWeightGene <- function(object,
+                            method = c("weight_cut","top_ratio","top_number")){
+  gw = GetGeneWeight(object)
+
+  num_trajectories = getParams(ct, "trajectory_number")
+
+  wt <- lapply(1:num_trajectories, function(i){
+    x = GetWeightGene(ct, method = method, trajectory = i)
+    w = gw[x, i] %>% abs
+    w = sort(w, decreasing = TRUE)
+    w = data.frame(gene = names(w), weight = w %>% round(3))
+    return(w)
+  })
+
+  max_rows = max(sapply(wt, nrow))
+  wtm = matrix("", ncol = num_trajectories * 2, nrow = max_rows)
+  colnames(wtm) = unlist(lapply(1:num_trajectories, function(i) paste0(c("Trajectory ", "Weight "), i)))
+
+  for(i in 1:num_trajectories){
+    wtm[1:nrow(wt[[i]]), (i * 2 - 1):(i * 2)] = wt[[i]][1:nrow(wt[[i]]), 1:2] %>% as.matrix
+  }
+
+  iter_range = object@Settings@settings$weight_iter_range
+  output_file = paste0("4_differential_genes/gene_weight_", method, "_",
+                       paste0(iter_range, collapse = "_"), ".csv")
+  write.csv(wtm, row.names = FALSE, file = output_file)
+  return(wtm)
+}
 
 #' TrajPlot
 #' @description
 #' smooth trajectory visualization
-#' @param track_df dataframe for plot smooth trajectory
-#' @param pointColorValue
-#' @param indexL trajectory index
+#' @param object MGPfact object
+#' @param col the colors of different branches
+#' @param save logical value, whether to save pdf
+#' @param box_fill box color
 #' @param title plot title
 #' @param g_title
-#' @param col the colors of different branches
-#' @param c branching column
-#' @param w trajectory score column
 #' @param tb logical value, whether label bifurcation line
 #' @param tb_pred bifurcation point
 #' @param pointSize point size
@@ -703,25 +735,22 @@ GetGeneWeight <- function(object){
 
 #' @export
 #'
-TrajPlot <- function(track_sdf = NULL,
-                     pointColorValue = NULL,
-                     indexL = 1,
-                     title = T,
+TrajPlot <- function(object ,
+                     box_fill = NULL,
+                     plot_title = TRUE,
                      g_title = NULL,
                      col = NULL,
-                     c = NULL,
-                     w = NULL,
-                     tb = TRUE,
+                     plot_tb = TRUE,
                      tb_pred = NULL,
-                     pointSize = 4,
+                     pointSize = 5,
                      pointAlpha = 0.4,
                      pointLabel = FALSE,
                      pointLabelsize = 3,
                      rug = TRUE,
                      rugAlpha = 0.3,
-                     legend = FALSE,
-                     legend_title = "Bif",
-                     lm = TRUE,
+                     legend = TRUE,
+                     legend_title = NULL,
+                     lm = FALSE,
                      lineMethod = loess,
                      lineType = "solid",
                      lineSize = 1,
@@ -733,107 +762,124 @@ TrajPlot <- function(track_sdf = NULL,
                      vlineType = "dashed",
                      ...){
 
-  l = indexL
-  df = track_sdf
-  t = "T"
-  df[,paste0(c,"_1")] = as.factor(df[,paste0(c,"_1")])
-  df[,paste0(c,"_2")] = as.factor(df[,paste0(c,"_2")])
-  df[,c] = as.factor(df[,c])
+  coln = ifelse(is.null(col), "C", col)
+  L = getParams(object, "trajectory_number")
 
-  if(is.null(col)){
-    col = c
-  }
-  if(is.null(pointColorValue)){
-    if(col==c){
-      pointColorValue = colorRampPalette(pal_d3("category10")(10))(10)[c(8,1,4)]
-      names(pointColorValue) = c(0,1,2)
-    } else{
-      pointColorValue = colorRampPalette(pal_d3("category20")(20))(20)
+  plist = list()
+  for(indexL in 1:L){
+    df = GetMURPInfo(object)
+    tb_pred = df[1,paste0("Tb_", indexL)]
+    c = paste0("C0_", indexL)
+    w = paste0("W_", indexL)
+    # if(is.null(c)) { c = paste0("C0_", indexL)}
+    # if(is.null(w)) { w = paste0("W_", indexL)}
+    df[,paste0(c,"_1")] = as.factor(df[,paste0(c,"_1")])
+    df[,paste0(c,"_2")] = as.factor(df[,paste0(c,"_2")])
+    df[,c] = as.factor(df[,c])
+    df[,paste0(c,"_1")] = as.factor(df[,paste0(c,"_1")])
+    df[,paste0(c,"_2")] = as.factor(df[,paste0(c,"_2")])
+    t = "T"
+    if(coln=="C"){
+      col = c
     }
+    if(is.null(box_fill)){
+      if(col==c){
+        box_fill = colorRampPalette(pal_d3("category10")(10))(10)[c(8,1,4)]
+        names(box_fill) = c(0,1,2)
+      } else{
+        box_fill = colorRampPalette(pal_d3("category20")(20))(20)
+      }
+    }
+
+    p = ggplot(df) +
+      geom_point(alpha = pointAlpha, size = pointSize,
+                 # aes(x = get(t), y = get(w), colour = factor(get(col)))
+                 aes_string(x = t, y = w, colour = col ))
+
+    # whether tb
+    if(plot_tb){
+      p = p +
+        geom_vline(xintercept = tb_pred, colour = "#990000", linetype = "dashed")
+    }
+
+    # rug
+    if(rug){
+      p = p +
+        geom_rug(alpha = rugAlpha,
+                 aes_string(x = t, y = paste0(w,"_1"), colour = paste0(c,"_1")) ) +
+        geom_rug(alpha = rugAlpha,
+                 aes_string(x = t, y = paste0(w,"_2"), colour = paste0(c,"_2")) )
+    }
+
+    # loess
+    if(lm){
+      p = p +
+        geom_line( stat = "smooth",
+                   aes_string(x = t, y = paste0(w,"_1"), colour = paste0(c,"_1")),
+                   na.rm = TRUE,
+                   method = lineMethod,
+                   linetype = lineType,
+                   size = lineSize,
+                   alpha = lineAlpha,
+                   se = se,
+                   span = span,
+                   family = family,
+                   formula = formula) +
+        geom_line( stat = "smooth",
+                   aes_string(x = t, y = paste0(w,"_2"), colour = paste0(c,"_2")),
+                   na.rm = TRUE,
+                   method = lineMethod,
+                   linetype = lineType,
+                   size = lineSize,
+                   alpha = lineAlpha,
+                   se = se,
+                   span = span,
+                   family = family,
+                   formula = formula)
+
+    }
+
+    # label
+    if(pointLabel){
+      p <- p +
+        geom_text(aes_string(x = t, y = w, label = "names"),
+                  color = "black",
+                  size = pointLabelsize)
+    }
+
+    # final
+    if(!plot_title){
+      p = p +
+        scale_colour_manual(values = box_fill) +
+        labs(title = paste0(" "), x = "PseudoT", y = "Score", color = legend_title) +
+        rj.ftheme
+    }else{
+      if(is.null(g_title)){
+        p = p +
+          scale_colour_manual(values = box_fill, drop = F) +
+          labs(title = paste0("Trajectory ",indexL), x = "PseudoT", y = "Score", color = legend_title) +
+          rj.ftheme
+      }else {
+        p = p +
+          scale_colour_manual(values = box_fill) +
+          labs(title = paste0(g_title," in trajectory ",indexL), x = "PseudoT", y = "Score", color = legend_title) +
+          rj.ftheme
+      }
+    }
+
+    # legend
+    if(!legend){
+      p = p + guides(colour = "none")
+    }
+    plist = append(plist, list(p))
   }
-
-  p = ggplot(df) +
-    geom_point(alpha = pointAlpha, size = pointSize,
-               # aes(x = get(t), y = get(w), colour = factor(get(col)))
-               aes_string(x = t, y = w, colour = col ))
-
-  # whether tb
-  if(tb){
-    p = p +
-      geom_vline(xintercept = tb_pred, colour = "#990000", linetype = "dashed")
-  }
-
-  # rug
-  if(rug){
-    p = p +
-      geom_rug(alpha = rugAlpha,
-               aes_string(x = t, y = paste0(w,"_1"), colour = paste0(c,"_1")) ) +
-      geom_rug(alpha = rugAlpha,
-               aes_string(x = t, y = paste0(w,"_2"), colour = paste0(c,"_2")) )
-  }
-
-  # loess
-  if(lm){
-    p = p +
-      geom_line( stat = "smooth",
-                 aes_string(x = t, y = paste0(w,"_1"), colour = paste0(c,"_1")),
-                 na.rm = TRUE,
-                 method = lineMethod,
-                 linetype = lineType,
-                 size = lineSize,
-                 alpha = lineAlpha,
-                 se = se,
-                 span = span,
-                 family = family,
-                 formula = formula) +
-      geom_line( stat = "smooth",
-                 aes_string(x = t, y = paste0(w,"_2"), colour = paste0(c,"_2")),
-                 na.rm = TRUE,
-                 method = lineMethod,
-                 linetype = lineType,
-                 size = lineSize,
-                 alpha = lineAlpha,
-                 se = se,
-                 span = span,
-                 family = family,
-                 formula = formula)
-
-  }
-
-  # label
-  if(pointLabel){
-    p <- p +
-      geom_text(aes_string(x = t, y = w, label = "names"),
-                color = "black",
-                size = pointLabelsize)
-  }
-
-  # final
-  if(!title){
-    p = p +
-      scale_colour_manual(values = pointColorValue) +
-      labs(title = paste0(" "), x = "PseudoT", y = "Score", color = legend_title) +
-      rj.ftheme
+  pl <- wrap_plots(plist, ncol = L, guides = "collect")
+  if(save){
+    ggsave(paste0("3_tracking/3.2_trajectory/3_t_score_mean_",coln,".pdf"),
+           pl, width = L*4, height = 4)
   }else{
-    if(is.null(g_title)){
-      p = p +
-        scale_colour_manual(values = pointColorValue, drop = F) +
-        labs(title = paste0("Trajectory ",l), x = "PseudoT", y = "Score", color = legend_title) +
-        rj.ftheme
-    }else {
-      p = p +
-        scale_colour_manual(values = pointColorValue) +
-        labs(title = paste0(g_title," in trajectory ",l), x = "PseudoT", y = "Score", color = legend_title) +
-        rj.ftheme
-    }
+    return(pl)
   }
-
-  # legend
-  if(!legend){
-    p = p + guides(colour = "none")
-  }
-
-  return(p)
 }
 
 

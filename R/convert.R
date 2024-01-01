@@ -1,4 +1,20 @@
 
+#' is.julia.setup
+#'
+#' @description
+#' Determine if the Julia environment is connected.
+#'
+#' @export
+#'
+is.julia.setup <- function(){
+  x = tryCatch({julia_command("a=1");julia_exists("b")}, error = function(e){ "error"})
+  if(x[1]=="error"){
+    return(FALSE)
+  }else{
+    return(TRUE)
+  }
+}
+
 #' SaveMURPDatToJulia
 #'
 #' @description
@@ -36,7 +52,9 @@ RunningmodMGPpseudoT <- function(object,
                                  julia_home,
                                  seed = 723,
                                  cores = 1){
-  julia_setup(JULIA_HOME = julia_home)
+  if(!is.julia.setup()){
+    julia_setup(JULIA_HOME = julia_home)
+  }
 
   cat("/// parameters setting \n")
   # list(getParams(object, "trajectory_number"),
@@ -127,7 +145,9 @@ write(string("2_pseudotime/2.1_julia_result/iter",sim.model.iter,"_bi",sim.model
 ReadPseSim <- function(sim = NULL,
                        julia_home = NULL,
                        init = FALSE){
-  julia_setup(JULIA_HOME = julia_home)
+  if(!is.julia.setup()){
+    julia_setup(JULIA_HOME = julia_home)
+  }
 
   ## load sim.jls
   cmd = 'using Distributed, RData
@@ -162,7 +182,9 @@ ImportPseResult <- function(object,
                             init = FALSE,
                             julia_home = FALSE){
 
-  julia_setup(JULIA_HOME = julia_home)
+  if(!is.julia.setup()){
+    julia_setup(JULIA_HOME = julia_home)
+  }
 
   if(init){
     cmd = 'chains = sim.chains
@@ -223,6 +245,12 @@ GetSigmaFromJulia <- function(object,
                               load = FALSE,
                               julia_home = NULL,
                               init = T){
+
+  if(!is.julia.setup()){
+    julia_setup(JULIA_HOME = julia_home)
+    julia_command("using MGPfact, Mamba, RData, Distributions")
+  }
+
   ## 1. load
   if(load){
     ReadPseSim(sim = paste0("iter",getParams(object, "pse_optim_iterations"),"_bi0.jls"),

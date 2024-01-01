@@ -9,7 +9,9 @@ PlotPieConsensusAllLabel(
   labels = NULL,
   size = 0.2,
   color = "black",
-  scale_factor = 0.5
+  scale_factor = 0.7,
+  cell_size = 1,
+  cell_alpha = 0.5
 )
 }
 \arguments{
@@ -20,6 +22,8 @@ PlotPieConsensusAllLabel(
 \item{size}{point size}
 
 \item{color}{Point outline color}
+
+\item{sub_scale_factor}{Sub view's size scaling factor}
 }
 \description{
 Visualize cell property labels on the main path of the consensus trajectory,

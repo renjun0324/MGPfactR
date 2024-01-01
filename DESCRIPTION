@@ -42,7 +42,8 @@ Imports:
     MASS,
     Rmisc,
     ggpubr,
-    ggimage
+    ggimage,
+    latex2exp
 License: GPL-3
 Encoding: UTF-8
 LazyData: true

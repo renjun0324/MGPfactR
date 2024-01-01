@@ -5,25 +5,22 @@
 \title{TrajPlot}
 \usage{
 TrajPlot(
-  track_sdf = NULL,
-  pointColorValue = NULL,
-  indexL = 1,
-  title = T,
+  object,
+  box_fill = NULL,
+  plot_title = TRUE,
   g_title = NULL,
   col = NULL,
-  c = NULL,
-  w = NULL,
-  tb = TRUE,
+  plot_tb = TRUE,
   tb_pred = NULL,
-  pointSize = 4,
+  pointSize = 5,
   pointAlpha = 0.4,
   pointLabel = FALSE,
   pointLabelsize = 3,
   rug = TRUE,
   rugAlpha = 0.3,
-  legend = FALSE,
-  legend_title = "Bif",
-  lm = TRUE,
+  legend = TRUE,
+  legend_title = NULL,
+  lm = FALSE,
   lineMethod = loess,
   lineType = "solid",
   lineSize = 1,
@@ -37,17 +34,11 @@ TrajPlot(
 )
 }
 \arguments{
-\item{indexL}{trajectory index}
+\item{object}{MGPfact object}
 
-\item{title}{plot title}
+\item{box_fill}{box color}
 
 \item{col}{the colors of different branches}
-
-\item{c}{branching column}
-
-\item{w}{trajectory score column}
-
-\item{tb}{logical value, whether label bifurcation line}
 
 \item{tb_pred}{bifurcation point}
 
@@ -77,7 +68,11 @@ TrajPlot(
 
 \item{lineAlpha}{line alpha}
 
-\item{track_df}{dataframe for plot smooth trajectory}
+\item{save}{logical value, whether to save pdf}
+
+\item{title}{plot title}
+
+\item{tb}{logical value, whether label bifurcation line}
 }
 \description{
 smooth trajectory visualization

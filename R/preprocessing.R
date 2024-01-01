@@ -96,7 +96,11 @@ MURPDownsampling <- function(object,
   object <- MURPPCA(object, pca.center = pca.center, pca.scale = pca.scale)
 
   if(plot){
-    ggsave("1_murp/murp_bic_k.pdf", MURPNestedGridPlot(object@MURP), width = 3.5, height = 3.5)
+
+    p = MURPNestedGridPlot(object@MURP) +
+      ggtitle("") +
+      theme(plot.margin = unit(c(0.5,0.5,0.5,0.5), "cm"))
+    ggsave("1_murp/murp_bic_k.pdf", p, width = 4, height = 4.3)
 
     pl = PCANestedGridPlot(pca_result = object@MURP$centersPCA, sd_cutoff = 1, max_pc = 100)
     p = wrap_plots(pl, ncol = 3, guides = "collect")

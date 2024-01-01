@@ -4,7 +4,13 @@
 \alias{PlotPieConsensusMainLabel}
 \title{PlotPieTbMainLabel}
 \usage{
-PlotPieConsensusMainLabel(object, labels = NULL, size = 0.2, color = "black")
+PlotPieConsensusMainLabel(
+  object,
+  labels = NULL,
+  size = 0.2,
+  color = "black",
+  sub_scale_factor = 0.7
+)
 }
 \arguments{
 \item{object}{MGPfact object}
@@ -14,6 +20,8 @@ PlotPieConsensusMainLabel(object, labels = NULL, size = 0.2, color = "black")
 \item{size}{point size}
 
 \item{color}{Point outline color}
+
+\item{sub_scale_factor}{Sub view's size scaling factor}
 }
 \description{
 Visualize cell property labels on the main path of the consensus trajectory,

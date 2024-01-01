@@ -521,8 +521,13 @@ PlotPieBinLabel <- function(object,
 #' @param labels cell property labels
 #' @param size point size
 #' @param color Point outline color
+#' @param sub_width sub view width
 #' @export
-PlotPieTbLabel <- function(object, labels = NULL,size = 0.2, color = "black"){
+PlotPieTbLabel <- function(object,
+                           labels = NULL,
+                           size = 0.2,
+                           color = "black",
+                           sub_width = 1){
 
   sdf = GetMURPInfo(object)
   tbtree = GetTbTreeResult(object)
@@ -562,7 +567,7 @@ PlotPieTbLabel <- function(object, labels = NULL,size = 0.2, color = "black"){
       geom_edge_diagonal(alpha = 0.7, width = 0.5, check_overlap = FALSE) +
       geom_node_point(aes(colour = factor(get(lab),levels = levs) ),
                       size = 6, alpha = 0) +
-      geom_subview(aes(x = V1, y = V2, subview = pie), width=1.5, height=1.5, data = dff) +
+      geom_subview(aes(x = V1, y = V2, subview = pie), width=sub_width, height=sub_width, data = dff) +
       scale_colour_d3("category20", breaks = levs, labels = levs) +
       labs(colour = lab) +
       guides(colour = guide_legend(override.aes=list(alpha = 1, size=4))) +
@@ -584,11 +589,13 @@ PlotPieTbLabel <- function(object, labels = NULL,size = 0.2, color = "black"){
 #' @param labels cell property labels
 #' @param size point size
 #' @param color Point outline color
+#' @param sub_scale_factor Sub view's size scaling factor
 #' @export
 PlotPieConsensusMainLabel <- function(object,
                                       labels = NULL,
                                       size = 0.2,
-                                      color = "black"){
+                                      color = "black",
+                                      sub_scale_factor = 0.7){
 
   sdf = GetMURPInfo(object)
   tbtree_all = GetTbTreeAllResult(object)
@@ -645,6 +652,7 @@ PlotPieConsensusMainLabel <- function(object,
     dff$rat[dff$rat>3] = 3
 
     ## plot
+    dff$rat = dff$rat * sub_scale_factor
     ggraph(graph2, layout = "manual", x = V(graph2)$x, y = V(graph2)$y) +
       geom_edge_link0(width = 0.5, alpha = 0.1) +
       geom_node_point(aes(size = .data$rat, colour = factor(get(lab),levels = levs) ),
@@ -677,10 +685,16 @@ PlotPieConsensusMainLabel <- function(object,
 #' @param labels cell property labels
 #' @param size point size
 #' @param color Point outline color
+#' @param sub_scale_factor Sub view's size scaling factor
 #' @export
-PlotPieConsensusAllLabel <- function(object, labels = NULL,
-                                     size = 0.2, color = "black",
-                                     scale_factor = 0.5){
+PlotPieConsensusAllLabel <- function(object,
+                                     labels = NULL,
+                                     size = 0.2,
+                                     color = "black",
+                                     scale_factor = 0.7,
+                                     cell_size = 1,
+                                     cell_alpha = 0.5
+                                     ){
 
   sdf = GetMURPInfo(object)
   tbtree_all = GetTbTreeAllResult(object)
@@ -736,10 +750,11 @@ PlotPieConsensusAllLabel <- function(object, labels = NULL,
     dff$rat[dff$rat>3] = 3
 
     ## plot
+    dff$rat = dff$rat * sub_scale_factor
     ggraph(graph, layout = "manual", x = bb$xy[, 1], y = bb$xy[, 2]) +
       geom_edge_link0(colour = "#202020", width = 0.3, alpha = 0.1) +
       geom_node_point(aes(filter = .data$alpha_murp!=1, colour = factor(get(lab),levels = levs)),
-                      size = 0.5, alpha = 0.07 ) +
+                      size = cell_size, alpha = cell_alpha ) +
       geom_node_point(aes(filter = .data$alpha_murp==1, colour = factor(get(lab),levels = levs),
                           size = .data$rat,alpha = 0)) +
 
