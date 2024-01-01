@@ -310,8 +310,8 @@ GeneBoxPhase <- function(object,
                                   y_position = seq(4, length.out = 3, by = 0.7))   # celltype2
 
       ## 画图
-      ggplot(dff, aes(x = group, y = expr)) +
-        geom_boxplot(aes(fill = group), width = 0.35, outlier.shape = NA, outlier.size = 0.01, na.rm=TRUE, size = 0.05) +
+      ggplot(dff, aes(x = .data$group, y = .data$expr)) +
+        geom_boxplot(aes(fill = .data$group), width = 0.35, outlier.shape = NA, outlier.size = 0.01, na.rm=TRUE, size = 0.05) +
         labs(color = "", x = "", y = "Expression") +
         facet_wrap( ~ traj + gene , scales = "free", labeller = label_parsed) +
 
@@ -403,7 +403,7 @@ GeneCurvePlot <- function(object,
     tb = sdf[1,paste0("Tb_",l)]
     lapply(gene, function(g){
       cat(g, "\n")
-      df = data.frame(sdf, gene = ct@MURP$Recommended_K_cl$centers[,g])
+      df = data.frame(sdf, gene = object@MURP$Recommended_K_cl$centers[,g])
       gpr_df <- data.frame(plot_gene_df[,paste0("L",l,"_",g),drop=FALSE],
                            T = ssdf$T,
                            C = as.factor(ssdf[,paste0("C_",l)]) ) %>% melt(id = c("T","C"))

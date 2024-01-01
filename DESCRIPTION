@@ -43,6 +43,7 @@ Imports:
     Rmisc,
     ggpubr,
     ggimage,
+    ggsignif,
     latex2exp
 License: GPL-3
 Encoding: UTF-8

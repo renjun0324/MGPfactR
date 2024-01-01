@@ -683,10 +683,10 @@ WriteWeightGene <- function(object,
                             method = c("weight_cut","top_ratio","top_number")){
   gw = GetGeneWeight(object)
 
-  num_trajectories = getParams(ct, "trajectory_number")
+  num_trajectories = getParams(object, "trajectory_number")
 
   wt <- lapply(1:num_trajectories, function(i){
-    x = GetWeightGene(ct, method = method, trajectory = i)
+    x = GetWeightGene(object, method = method, trajectory = i)
     w = gw[x, i] %>% abs
     w = sort(w, decreasing = TRUE)
     w = data.frame(gene = names(w), weight = w %>% round(3))
