@@ -1,6 +1,6 @@
 
-# <br><img src="vignettes/4_all_pie_time_point.png" align="right" width="300"/>
 
+<!-- <br><img src="vignettes/4_all_pie_time_point.png" align="right" width="300"/> -->
 # MGPfactR
 
 A model-based, unsupervised manifold learning method that factors complex cellular trajectories into interpretable bifurcating Gaussian processes of transcription. The complete functionality of MGPfact is accessible in [MGPfactR](https://github.com/renjun0324/MGPfactR), enabling the discovery of specific biological determinants of cell fate.
