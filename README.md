@@ -1,5 +1,5 @@
 
-<br><img src="vignettes/4_all_pie_time_point.png" align="right" width="300"/>
+# <br><img src="vignettes/4_all_pie_time_point.png" align="right" width="300"/>
 
 # MGPfactR
 
@@ -51,7 +51,7 @@ julia_setup(JULIA_HOME=julia_home)
 ```
 
 ## quick start
-For the detailed usage process of MGPfact, please click [here](https://github.com/renjun0324/MGPfactR/blob/master/vignettes/workflow.html)
+For the detailed usage process of MGPfact, please click [here](https://renjun0324.github.io/MGPfactR/)
 ```r
 data(fibroblast_reprogramming_treutlein)
 data = fibroblast_reprogramming_treutlein
