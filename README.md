@@ -89,13 +89,13 @@ PlotPieConsensusAllLabel(ct, labels = getParams(ct,"label"),size = 0.005)
 ```
 
 ### Factorized Trajectory
-<div align=center><img src="vignettes/2_binarytree_pie_time_point.png" width="400"></div>
+<div align=center><img src="vignettes/2_binarytree_pie_time_point.png" width="430"></div>
 
 ### Consensus Trajectory
 
-<div align=center><img src="vignettes/2_tbtree_pie_time_point.png" width="450"></div>
+<div align=center><img src="vignettes/2_tbtree_pie_time_point.png" width="430"></div>
 
-<div align=center><img src="vignettes/4_all_pie_time_point.png" width="450"></div>
+<div align=center><img src="vignettes/4_all_pie_time_point.png" width="430"></div>
 
 
 
