@@ -5,6 +5,16 @@
 
 A model-based, unsupervised manifold learning method that factors complex cellular trajectories into interpretable bifurcating Gaussian processes of transcription. The complete functionality of MGPfact is accessible in [MGPfactR](https://github.com/renjun0324/MGPfactR), enabling the discovery of specific biological determinants of cell fate.
 
+### Factorized Trajectory
+<div align=center><img src="vignettes/2_binarytree_pie_time_point.png" width="430"></div>
+
+### Consensus Trajectory
+
+<div align=center><img src="vignettes/2_tbtree_pie_time_point.png" width="450"></div>
+
+<div align=center><img src="vignettes/4_all_pie_time_point.png" width="450"></div>
+
+
 ## installation
 
 ### (1) Install julia environment
@@ -88,14 +98,6 @@ PlotPieConsensusMainLabel(ct, labels = getParams(ct,"label"))
 PlotPieConsensusAllLabel(ct, labels = getParams(ct,"label"),size = 0.005)
 ```
 
-### Factorized Trajectory
-<div align=center><img src="vignettes/2_binarytree_pie_time_point.png" width="430"></div>
-
-### Consensus Trajectory
-
-<div align=center><img src="vignettes/2_tbtree_pie_time_point.png" width="450"></div>
-
-<div align=center><img src="vignettes/4_all_pie_time_point.png" width="450"></div>
 
 
 
