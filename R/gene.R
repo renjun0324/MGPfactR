@@ -223,13 +223,31 @@ GetCurveSdf <- function(object){
 #' @param zscore logical value, whether to zscore
 #' @param test_method t.test / wilcox.test
 #' @param save logical value, whether to save pdf
+#' @param label_y Annotate the starting position of the p-value on the y-axis
+#' @param length_width Annotate the width of a single p-value
+#' @param y_range The range of the y-axis
 #' @export
 GeneBoxPhase <- function(object,
                          gene = NULL,
                          aspect = "cell",
                          zscore = TRUE,
                          test_method = "t.test",
-                         save = TRUE){
+                         save = TRUE,
+                         label_y = NULL,
+                         length_width = 0.7,
+                         y_range = NULL){
+
+  # object = ct2
+  # gene = "FOS"
+  # aspect = "murp"
+  # zscore = TRUE
+  # test_method = "t.test"
+  # save = TRUE
+  # label_y = NULL
+  # length_width = 0.7
+  # y_range = NULL
+
+  L = getParams(object,"trajectory_number")
 
   ## extract data and group
   if(aspect=="cell"){
@@ -280,10 +298,11 @@ GeneBoxPhase <- function(object,
       plc = combn(1:length(pl),2)
       mc = lapply(1:ncol(plc), function(i) pl[plc[,i]] %>% as.character )
       annotations <- sapply(mc, function(pair) {
+        rm(result, pval)
         group1 <- pair[1]
         group2 <- pair[2]
-        df = df_gene %>% filter(group %in% c(group1, group2))
-        tryCatch({
+        df = dff %>% filter(group %in% c(group1, group2))
+        pval = tryCatch({
           df$group = factor(as.character(df$group), levels = c(group1, group2))
 
           if(test_method == "t.test"){
@@ -296,20 +315,28 @@ GeneBoxPhase <- function(object,
           }
           # result = summary(aov(expr~group, df))
           # pval_lab(result[[1]][[5]][1])
-
+          pval
         }, error = function(e){
           paste0(" ")
         })
         return(pval)
       })
       mxx = df_gene %>% dplyr::select(expr) %>% max
+      if(is.null(label_y)){ label_y = mxx }
       annotation_df = data.frame( gene = rep(g, 3),
                                   traj = rep(ij, 3),
                                   label = annotations,
                                   do.call(rbind, mc),
-                                  y_position = seq(4, length.out = 3, by = 0.7))   # celltype2
+                                  y_position = seq(label_y, length.out = 3, by = length_width))   # celltype2
 
       ## 画图
+      if(is.null(y_range)){
+        min_y = min(dff$expr)
+        max_y = max(dff$expr) + 1
+      }else{
+        min_y = y_range[1]
+        max_y = y_range[2]
+      }
       ggplot(dff, aes(x = .data$group, y = .data$expr)) +
         geom_boxplot(aes(fill = .data$group), width = 0.35, outlier.shape = NA, outlier.size = 0.01, na.rm=TRUE, size = 0.05) +
         labs(color = "", x = "", y = "Expression") +
@@ -319,8 +346,8 @@ GeneBoxPhase <- function(object,
                          breaks = c("0","1","2"),
                          labels = c("Phase 0","Phase 1","Phase 2")) +
 
-        # scale_y_continuous(limits = c(min(xdf$expr), max(xdf$expr)+1) ) +
-        scale_y_continuous(limits = c(-1, 5) ) +
+        scale_y_continuous(limits = c(min_y, max_y) ) +
+        # scale_y_continuous(limits = c(-1, 5) ) +
         scale_fill_manual(values = c("0" = "#7F7F7F","1" = "#374e55ff", "2" = "#df8f44ff") ) +
 
         guides(fill = "none", color = "none") +
@@ -352,12 +379,14 @@ GeneBoxPhase <- function(object,
               # axis.text.x = element_text(size = 3.7,colour = 'black'),
               strip.text.x = element_text(margin = margin(0.05,0,0.05,0, "cm")),
               strip.text.y = element_text(margin = margin(0,0.05,0,0.05, "cm"))) -> p
+      p = as.ggplot(as.grob(p))
       plist_gene = append(plist_gene, list(p))
     }
-    pgene <- wrap_plots(plist_gene, ncol = getParams(object,"trajectory_number"))
+
+    pgene <- wrap_plots(plist_gene, ncol = L)
     plist_all = append(plist_all, list(pgene))
   }
-  p <- wrap_plots(plist_all, ncol = 1)
+  pp <- wrap_plots(plist_all, ncol = 1)
 
   if(save){
     if(length(gene)>5){
@@ -365,11 +394,12 @@ GeneBoxPhase <- function(object,
     }else{
       genet = gene
     }
+    cat("here")
     ggsave(paste0("4_differential_genes/gene_phase_", aspect,"_", test_method,"_",
                   paste0(genet,collapse = "_"),".pdf"),
-           p, width = getParams(object,"trajectory_number")*2.7, height = 4*length(gene), limitsize = FALSE)
+           pp, width = L*2.7, height = 4*length(gene), limitsize = FALSE)
   }else{
-    return(p)
+    return(pp)
   }
 
 }

@@ -44,7 +44,8 @@ Imports:
     ggpubr,
     ggimage,
     ggsignif,
-    latex2exp
+    latex2exp,
+    ggplotify
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
