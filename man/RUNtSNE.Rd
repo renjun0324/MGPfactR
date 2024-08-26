@@ -4,12 +4,12 @@
 \alias{RUNtSNE}
 \title{RUNtSNE}
 \usage{
-RUNtSNE(object, npc = 1:30)
+RUNtSNE(object, npcs = 1:30)
 }
 \arguments{
 \item{object}{MGPfact object}
 
-\item{npc}{which pc}
+\item{npcs}{which pc}
 }
 \description{
 Perform tSNE dimensionality reduction based on the principal component analysis

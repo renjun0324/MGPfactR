@@ -4,6 +4,7 @@
 #' Perform principal component analysis on the original gene expression matrix
 #'
 #' @param object MGPfact object
+#' @param pc_num Number of principal components
 #' @param center a logical value indicating whether the variables should be shifted to be zero centered.
 #' Alternately, a vector of length equal the number of columns of x can be supplied. The value is passed to scale.
 #' @param scale a logical value indicating whether the variables should be scaled to have unit variance before the analysis takes place.
@@ -11,15 +12,29 @@
 #' @export
 #'
 RUNPCA <- function(object,
+                   pc_num = 30,
                    center = TRUE,
                    scale = FALSE){
 
   s = object@assay$data_matrix
   s = as.matrix(s)
-  object@DimReducs@PCA = prcomp(s, center = center, scale = scale)
+
+  # slower
+  # object@DimReducs@PCA = prcomp(s, center = center, scale = scale)
+
+  # faster
+  s2 = scale(s, center = center, scale = scale)
+  pca.results <- irlba(A = s2, nv = pc_num)
+  cell.embeddings <- pca.results$u %*% diag(pca.results$d) # 常规操作
+  # cell.embeddings <- pca.results$u
+  feature.loadings <- pca.results$v
+  sdev <- pca.results$d/sqrt(max(1, ncol(s) - 1))
+
   command = GetCommand()
   object@Command$DimReducs$PCA = command
-
+  object@DimReducs@PCA = list(cell.embeddings = cell.embeddings,
+                              feature.loadings = feature.loadings,
+                              sdev = sdev)
   return(object)
 }
 
@@ -29,16 +44,17 @@ RUNPCA <- function(object,
 #' Perform tSNE dimensionality reduction based on the principal component analysis
 #'
 #' @param object MGPfact object
-#' @param npc which pc
+#' @param npcs which pc
 #' @export
 #'
 RUNtSNE <- function(object,
-                    npc = 1:30){
+                    npcs = 1:30){
 
-  pca = object@DimReducs@PCA$x
-  object@DimReducs@tSNE = Rtsne(pca[,npc], pca = FALSE)
+  pca = object@DimReducs@PCA$cell.embeddings
+  tsne = Rtsne(pca[,npcs], pca = FALSE)
   command = GetCommand()
   object@Command$DimReducs$tSNE = command
+  object@DimReducs@tSNE = list(cell.embeddings = tsne$Y)
   return(object)
 }
 
@@ -48,15 +64,16 @@ RUNtSNE <- function(object,
 #' Perform UMAP dimensionality reduction based on the principal component analysis
 #'
 #' @param object MGPfact object
-#' @param npc which pc
+#' @param npcs which pc
 #' @export
 #'
 RUNUMAP <- function(object,
-                    npc = 1:30){
-  pca = object@DimReducs@PCA$x
-  object@DimReducs@UMAP = umap(pca[,npc])
+                    npcs = 1:30){
+  x = object@DimReducs@PCA$cell.embeddings[,npcs]
+  umap = umap(x)
   command = GetCommand()
   object@Command$DimReducs$UMAP = command
+  object@DimReducs@UMAP = list(cell.embeddings = umap$layout)
   return(object)
 }
 

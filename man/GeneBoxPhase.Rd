@@ -10,7 +10,10 @@ GeneBoxPhase(
   aspect = "cell",
   zscore = TRUE,
   test_method = "t.test",
-  save = TRUE
+  save = TRUE,
+  label_y = NULL,
+  length_width = 0.7,
+  y_range = NULL
 )
 }
 \arguments{
@@ -25,6 +28,12 @@ GeneBoxPhase(
 \item{test_method}{t.test / wilcox.test}
 
 \item{save}{logical value, whether to save pdf}
+
+\item{label_y}{Annotate the starting position of the p-value on the y-axis}
+
+\item{length_width}{Annotate the width of a single p-value}
+
+\item{y_range}{The range of the y-axis}
 }
 \description{
 violin plot of gene expression in different branches.

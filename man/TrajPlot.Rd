@@ -38,6 +38,8 @@ TrajPlot(
 
 \item{box_fill}{box color}
 
+\item{g_title}{gene name}
+
 \item{col}{the colors of different branches}
 
 \item{tb_pred}{bifurcation point}

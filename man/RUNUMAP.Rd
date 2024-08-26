@@ -4,12 +4,12 @@
 \alias{RUNUMAP}
 \title{RUNUMAP}
 \usage{
-RUNUMAP(object, npc = 1:30)
+RUNUMAP(object, npcs = 1:30)
 }
 \arguments{
 \item{object}{MGPfact object}
 
-\item{npc}{which pc}
+\item{npcs}{which pc}
 }
 \description{
 Perform UMAP dimensionality reduction based on the principal component analysis

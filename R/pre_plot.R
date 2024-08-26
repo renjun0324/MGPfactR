@@ -178,18 +178,18 @@ PlotLabelSplit <- function(object = NULL,
   df = tmp
   for(c in stag){
     if(c=="PCA"){
-      df <- data.frame(PCA1 = object@DimReducs@PCA$x[,1],
-                       PCA2 = object@DimReducs@PCA$x[,2],
+      df <- data.frame(PCA1 = object@DimReducs@PCA$cell.embeddings[,1],
+                       PCA2 = object@DimReducs@PCA$cell.embeddings[,2],
                        df, stringsAsFactors = FALSE)
     }
     if(c=="tSNE"){
-      df <- data.frame(tSNE1 = object@DimReducs@tSNE$Y[,1],
-                       tSNE2 = object@DimReducs@tSNE$Y[,2],
+      df <- data.frame(tSNE1 = object@DimReducs@tSNE$cell.embeddings[,1],
+                       tSNE2 = object@DimReducs@tSNE$cell.embeddings[,2],
                        df, stringsAsFactors = FALSE)
     }
     if(c=="UMAP"){
-      df <- data.frame(UMAP1 = object@DimReducs@UMAP$layout[,1],
-                       UMAP2 = object@DimReducs@UMAP$layout[,2],
+      df <- data.frame(UMAP1 = object@DimReducs@UMAP$cell.embeddings[,1],
+                       UMAP2 = object@DimReducs@UMAP$cell.embeddings[,2],
                        df, stringsAsFactors = FALSE)
     }
     if(c=="DM"){
@@ -303,18 +303,18 @@ PlotLabelMerge <- function(object = NULL,
   df = tmp
   for(c in stag){
     if(c=="PCA"){
-      df <- data.frame(PCA1 = object@DimReducs@PCA$x[,1],
-                       PCA2 = object@DimReducs@PCA$x[,2],
+      df <- data.frame(PCA1 = object@DimReducs@PCA$cell.embeddings[,1],
+                       PCA2 = object@DimReducs@PCA$cell.embeddings[,2],
                        df, stringsAsFactors = FALSE)
     }
     if(c=="tSNE"){
-      df <- data.frame(tSNE1 = object@DimReducs@tSNE$Y[,1],
-                       tSNE2 = object@DimReducs@tSNE$Y[,2],
+      df <- data.frame(tSNE1 = object@DimReducs@tSNE$cell.embeddings[,1],
+                       tSNE2 = object@DimReducs@tSNE$cell.embeddings[,2],
                        df, stringsAsFactors = FALSE)
     }
     if(c=="UMAP"){
-      df <- data.frame(UMAP1 = object@DimReducs@UMAP$layout[,1],
-                       UMAP2 = object@DimReducs@UMAP$layout[,2],
+      df <- data.frame(UMAP1 = object@DimReducs@UMAP$cell.embeddings[,1],
+                       UMAP2 = object@DimReducs@UMAP$cell.embeddings[,2],
                        df, stringsAsFactors = FALSE)
     }
     if(c=="DM"){

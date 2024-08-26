@@ -716,7 +716,7 @@ WriteWeightGene <- function(object,
 #' @param save logical value, whether to save pdf
 #' @param box_fill box color
 #' @param title plot title
-#' @param g_title
+#' @param g_title gene name
 #' @param tb logical value, whether label bifurcation line
 #' @param tb_pred bifurcation point
 #' @param pointSize point size

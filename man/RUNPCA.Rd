@@ -4,10 +4,12 @@
 \alias{RUNPCA}
 \title{RUNPCA}
 \usage{
-RUNPCA(object, center = TRUE, scale = FALSE)
+RUNPCA(object, pc_num = 30, center = TRUE, scale = FALSE)
 }
 \arguments{
 \item{object}{MGPfact object}
+
+\item{pc_num}{Number of principal components}
 
 \item{center}{a logical value indicating whether the variables should be shifted to be zero centered.
 Alternately, a vector of length equal the number of columns of x can be supplied. The value is passed to scale.}
