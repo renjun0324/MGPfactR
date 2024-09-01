@@ -30,6 +30,7 @@ TrajPlot(
   formula = y ~ x,
   family = NULL,
   vlineType = "dashed",
+  save = T,
   ...
 )
 }

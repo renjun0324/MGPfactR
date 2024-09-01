@@ -380,7 +380,7 @@ WeightGeneFilter<- function(object,
                             q_seq = 0.25,
                             top_ratio = 0.1,
                             top_number = 500,
-                            weight_cut = 0.03){
+                            weight_cut = 0.01){
 
   if(is.null(iter_range)){ iter_range = getParams(object,"weight_iter_range") }
   index = paste0("iter_", iter_range[1], "_", iter_range[2])
@@ -760,6 +760,7 @@ TrajPlot <- function(object ,
                      formula = y~x,
                      family = NULL,
                      vlineType = "dashed",
+                     save = T,
                      ...){
 
   coln = ifelse(is.null(col), "C", col)

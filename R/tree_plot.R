@@ -683,15 +683,17 @@ PlotPieConsensusMainLabel <- function(object,
 #'
 #' @param object MGPfact object
 #' @param labels cell property labels
-#' @param size point size
+#' @param size pie size
 #' @param color Point outline color
 #' @param sub_scale_factor Sub view's size scaling factor
+#' @param cell_size point size
+#' @param cell_alpha point alpha
 #' @export
 PlotPieConsensusAllLabel <- function(object,
                                      labels = NULL,
                                      size = 0.2,
                                      color = "black",
-                                     scale_factor = 0.7,
+                                     sub_scale_factor = 0.7,
                                      cell_size = 1,
                                      cell_alpha = 0.5
                                      ){

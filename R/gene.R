@@ -251,7 +251,12 @@ GeneBoxPhase <- function(object,
 
   ## extract data and group
   if(aspect=="cell"){
-    dat = object@assay$data_matrix[,gene,drop=F]
+    if(("data_matrix_all_gene" %in% names(object@assay))){
+      dat = object@assay$data_matrix_all_gene[,gene,drop=F]
+    }else{
+      dat = object@assay$data_matrix[,gene,drop=F]
+    }
+
     ctag = paste0("C0_", 1:getParams(object,"trajectory_number"))
     if(zscore){
       for(ix in 1:ncol(dat)){

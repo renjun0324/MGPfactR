@@ -12,7 +12,7 @@ WeightGeneFilter(
   q_seq = 0.25,
   top_ratio = 0.1,
   top_number = 500,
-  weight_cut = 0.03
+  weight_cut = 0.01
 )
 }
 \arguments{
