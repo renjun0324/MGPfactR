@@ -98,6 +98,10 @@ PlotPieConsensusMainLabel(ct, labels = getParams(ct,"label"))
 PlotPieConsensusAllLabel(ct, labels = getParams(ct,"label"),size = 0.005)
 ```
 
+## Citation
+If you use MGPfact, please cite:
+
+Ren J, Zhou Y, Hu Y, et al. MGPfactXMBD: A Model-Based Factorization Method for scRNA Data Unveils Bifurcating Transcriptional Modules Underlying Cell Fate Determination[J]. eLife, 2024.
 
 
 
